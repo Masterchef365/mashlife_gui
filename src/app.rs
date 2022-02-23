@@ -30,10 +30,11 @@ impl epi::App for TemplateApp {
     /// Called once before the first frame.
     fn setup(
         &mut self,
-        _ctx: &egui::Context,
+        ctx: &egui::Context,
         _frame: &epi::Frame,
         _storage: Option<&dyn epi::Storage>,
     ) {
+        ctx.set_visuals(egui::Visuals::dark());
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         #[cfg(feature = "persistence")]
@@ -54,48 +55,14 @@ impl epi::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
         let Self { label, value } = self;
 
-        // Examples of how to create different panels and windows.
-        // Pick whichever suits you.
-        // Tip: a good default choice is to just keep the `CentralPanel`.
-        // For inspiration and more examples, go to https://emilk.github.io/egui
-
-        egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
-            // The top panel is often a good place for a menu bar:
-            egui::menu::bar(ui, |ui| {
-                ui.menu_button("File", |ui| {
-                    if ui.button("Quit").clicked() {
-                        frame.quit();
-                    }
-                });
-            });
-        });
-
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
-
-            ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
-                ui.horizontal(|ui| {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    ui.label("powered by ");
-                    ui.hyperlink_to("egui", "https://github.com/emilk/egui");
-                    ui.label(" and ");
-                    ui.hyperlink_to("eframe", "https://github.com/emilk/egui/tree/master/eframe");
-                });
-            });
-        });
-
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
+            let pixels = [
+                true, false, true, false, true, false, false, false, true, true, true, false, true,
+                false, false, false,
+            ];
+
+            ui.add(grid_square(&pixels, 4));
 
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
@@ -105,14 +72,55 @@ impl epi::App for TemplateApp {
             ));
             egui::warn_if_debug_build(ui);
         });
+    }
+}
+pub fn grid_square(pixels: &[bool], width: usize) -> impl egui::Widget + '_ {
+    move |ui: &mut egui::Ui| grid_square_ui(ui, pixels, width)
+}
 
-        if false {
-            egui::Window::new("Window").show(ctx, |ui| {
-                ui.label("Windows can be moved by dragging them.");
-                ui.label("They are automatically sized based on contents.");
-                ui.label("You can turn on resizing and scrolling if you like.");
-                ui.label("You would normally chose either panels OR windows.");
-            });
+pub fn grid_square_ui(ui: &mut egui::Ui, pixels: &[bool], width: usize) -> egui::Response {
+    // Widget code can be broken up in four steps:
+    //  1. Decide a size for the widget
+    //  2. Allocate space for it
+    //  3. Handle interactions with the widget (if any)
+    //  4. Paint the widget
+
+    let display_width = 400.0;
+
+    // 1. Deciding widget size:
+    // You can query the `ui` how much space is available,
+    // but in this example we have a fixed size widget based on the height of a standard button:
+    let desired_size = egui::vec2(display_width, display_width); //ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
+
+    // 2. Allocating space:
+    // This is where we get a region of the screen assigned.
+    // We also tell the Ui to sense clicks in the allocated region.
+    let (display_rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
+
+    // 4. Paint!
+    // Make sure we need to paint:
+    if ui.is_rect_visible(display_rect) {
+        //let visuals = ui.style().interact(&response);
+        ui.painter()
+            .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
+        let cell_width = display_width as f32 / width as f32;
+        let cell_size = egui::vec2(cell_width, cell_width);
+        for (row_idx, row) in pixels.chunks_exact(width).enumerate() {
+            for (col_idx, elem) in row.iter().enumerate() {
+                if *elem {
+                    let pos = egui::pos2(
+                        row_idx as f32 * cell_width,
+                        col_idx as f32 * cell_width,
+                    ) + display_rect.left_top().to_vec2();
+                    let rect = egui::Rect::from_min_size(pos, cell_size);
+                    ui.painter()
+                        .rect(rect, 0., egui::Color32::WHITE, egui::Stroke::none());
+                }
+            }
         }
     }
+
+    // All done! Return the interaction response so the user can check what happened
+    // (hovered, clicked, ...) and maybe show a tooltip:
+    response
 }
