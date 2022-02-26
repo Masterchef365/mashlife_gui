@@ -58,8 +58,10 @@ impl epi::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
             let pixels = [
-                true, false, true, false, true, false, false, false, true, true, true, false, true,
-                false, false, false,
+                true, false, true, false, 
+                true, false, false, false, 
+                true, true, true, false, 
+                true, false, false, false,
             ];
 
             ui.add(grid_square(&pixels, 4));
@@ -85,7 +87,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, pixels: &[bool], width: usize) -> egui:
     //  3. Handle interactions with the widget (if any)
     //  4. Paint the widget
 
-    let display_width = 400.0;
+    let display_width = 200.0;
 
     // 1. Deciding widget size:
     // You can query the `ui` how much space is available,
@@ -105,8 +107,8 @@ pub fn grid_square_ui(ui: &mut egui::Ui, pixels: &[bool], width: usize) -> egui:
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
         let cell_width = display_width as f32 / width as f32;
         let cell_size = egui::vec2(cell_width, cell_width);
-        for (row_idx, row) in pixels.chunks_exact(width).enumerate() {
-            for (col_idx, elem) in row.iter().enumerate() {
+        for (col_idx, row) in pixels.chunks_exact(width).enumerate() {
+            for (row_idx, elem) in row.iter().enumerate() {
                 if *elem {
                     let pos = egui::pos2(
                         row_idx as f32 * cell_width,
