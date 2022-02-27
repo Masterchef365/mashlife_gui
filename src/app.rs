@@ -13,9 +13,10 @@ impl Default for TemplateApp {
     fn default() -> Self {
         let mut grid = Grid::new();
 
-        for x in -100i32..100 {
-            for y in -100i32..100 {
-                if x.count_ones() < y.count_ones() {
+        let k: i32 = 4000;
+        for x in -k..=k {
+            for y in -k..=k {
+                if (x.abs() * 3402 + y.abs() * 4281).count_ones() < 5 {
                     grid.insert((x, y));
                 }
             }
@@ -60,7 +61,9 @@ impl epi::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
+            let t = std::time::Instant::now();
             ui.add(grid_square(&mut self.grid_view, Vec2::splat(400.)));
+            dbg!(t.elapsed().as_secs_f32());
 
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
@@ -80,7 +83,7 @@ pub fn grid_square(grid_view: &mut GridView, scale: Vec2) -> impl egui::Widget +
 pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) -> egui::Response {
     grid_view.center.x = 8.0;
     grid_view.center.y = 8.0;
-    grid_view.scale = dbg!(50. - grid_view.t.elapsed().as_secs_f32().sqrt() * 10.1);
+    grid_view.scale = 1. / grid_view.t.elapsed().as_secs_f32().log2();
     let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::hover());
 
     let mut ui = ui.child_ui(display_rect, egui::Layout::default());
@@ -92,7 +95,6 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
         for tile in grid_view.view(scale) {
-            dbg!(tile);
             ui.painter()
                 .rect(tile, 0., egui::Color32::WHITE, egui::Stroke::none());
         }
