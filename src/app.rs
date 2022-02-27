@@ -81,14 +81,20 @@ pub fn grid_square(grid_view: &mut GridView, scale: Vec2) -> impl egui::Widget +
 }
 
 pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) -> egui::Response {
-    grid_view.center.x = 8.0;
-    grid_view.center.y = 8.0;
-    grid_view.scale = 1. / grid_view.t.elapsed().as_secs_f32().log2();
-    let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::hover());
+    let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::click_and_drag());
 
+    // Clip outside the draw space
     let mut ui = ui.child_ui(display_rect, egui::Layout::default());
     ui.set_clip_rect(display_rect);
 
+    // Dragging
+    if response.dragged_by(egui::PointerButton::Primary) {
+        grid_view.drag(response.drag_delta());
+    }
+
+    grid_view.zoom(ui.input().scroll_delta.y * 0.001);
+
+    // Drawing
     if ui.is_rect_visible(display_rect) {
         // Background
         ui.painter()
@@ -115,7 +121,6 @@ pub struct GridView {
     scale: f32,
     /// Grid cells which are on
     grid: Grid,
-    t: std::time::Instant,
 }
 
 impl GridView {
@@ -128,8 +133,15 @@ impl GridView {
             scale: 50.,
             center: Pos2::ZERO,
             grid,
-            t: std::time::Instant::now(),
         }
+    }
+
+    pub fn drag(&mut self, delta: Vec2) {
+        self.center -= delta / self.scale;
+    }
+
+    pub fn zoom(&mut self, delta: f32) {
+        self.scale = (self.scale + delta * self.scale).clamp(1., 1000.);
     }
 
     pub fn click(&mut self, pos: Pos2) {
