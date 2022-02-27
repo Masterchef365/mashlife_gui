@@ -12,8 +12,14 @@ pub struct TemplateApp {
 impl Default for TemplateApp {
     fn default() -> Self {
         let mut grid = Grid::new();
-        grid.insert((1, 1));
-        grid.insert((0, 0));
+
+        for x in -100i32..100 {
+            for y in -100i32..100 {
+                if x.count_ones() < y.count_ones() {
+                    grid.insert((x, y));
+                }
+            }
+        }
 
         let grid_view = GridView::from_grid(grid);
 
@@ -72,8 +78,9 @@ pub fn grid_square(grid_view: &mut GridView, scale: Vec2) -> impl egui::Widget +
 }
 
 pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) -> egui::Response {
-    grid_view.center.x = grid_view.t.elapsed().as_secs_f32() * 0.1;
-    grid_view.center.y = grid_view.t.elapsed().as_secs_f32() * 0.1;
+    grid_view.center.x = 8.0;
+    grid_view.center.y = 8.0;
+    grid_view.scale = dbg!(50. - grid_view.t.elapsed().as_secs_f32().sqrt() * 10.1);
     let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::hover());
 
     let mut ui = ui.child_ui(display_rect, egui::Layout::default());
@@ -90,26 +97,6 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
                 .rect(tile, 0., egui::Color32::WHITE, egui::Stroke::none());
         }
         eprintln!();
-
-        /*
-        let cell_width = display_width as f32 / width as f32;
-        let cell_size = egui::vec2(cell_width, cell_width);
-        for (col_idx, row) in pixels.chunks_exact(width).enumerate() {
-            for (row_idx, elem) in row.iter().enumerate() {
-                if *elem {
-                    let pos = egui::pos2(
-                        row_idx as f32 * cell_width,
-                        col_idx as f32 * cell_width,
-                    )
-                    + display_rect.left_top().to_vec2()
-                    - egui::vec2(5., 5.);
-                    let rect = egui::Rect::from_min_size(pos, cell_size);
-                    ui.painter()
-                        .rect(rect, 0., egui::Color32::WHITE, egui::Stroke::none());
-                }
-            }
-        }
-        */
     }
 
     // All done! Return the interaction response so the user can check what happened
@@ -136,7 +123,7 @@ impl GridView {
 
     pub fn from_grid(grid: Grid) -> Self {
         Self {
-            scale: 100.,
+            scale: 50.,
             center: Pos2::ZERO,
             grid,
             t: std::time::Instant::now(),
@@ -150,16 +137,15 @@ impl GridView {
     pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
         let view_center_px = view_size_px / 2.;
         let view_size_grid = view_size_px / self.scale;
-        let view_center_grid = self.center + (view_center_px / self.scale);
 
-        let view_rect_grid = Rect::from_center_size(view_center_grid, view_size_grid);
+        let view_rect_grid = Rect::from_center_size(self.center, view_size_grid);
 
         self.grid.iter().filter_map(move |&(x, y)| {
             let pos_grid = Pos2::new(x as f32, y as f32);
             let rect = Rect::from_min_size(pos_grid, Vec2::splat(1.));
             view_rect_grid.intersects(rect).then(move || {
                 Rect::from_min_size(
-                    ((pos_grid - view_center_grid) * self.scale + view_center_px).to_pos2(),
+                    ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
                     Vec2::splat(self.scale),
                 )
             })
