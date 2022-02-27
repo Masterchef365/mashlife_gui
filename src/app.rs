@@ -61,9 +61,9 @@ impl epi::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            let t = std::time::Instant::now();
+            //let t = std::time::Instant::now();
             ui.add(grid_square(&mut self.grid_view, Vec2::splat(400.)));
-            dbg!(t.elapsed().as_secs_f32());
+            //dbg!(t.elapsed().as_secs_f32());
 
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
@@ -92,7 +92,14 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         grid_view.drag(response.drag_delta());
     }
 
-    grid_view.zoom(ui.input().scroll_delta.y * 0.001);
+    // Zooming
+    if let Some(hover_pos) = response.hover_pos() {
+        grid_view.zoom(
+            ui.input().scroll_delta.y * 0.001,
+            (hover_pos - display_rect.min).to_pos2(),
+            display_rect.size(),
+        );
+    }
 
     // Drawing
     if ui.is_rect_visible(display_rect) {
@@ -107,6 +114,11 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         eprintln!();
     }
 
+    if let Some(hover_pos) = response.hover_pos() {
+        ui.painter()
+            .rect(Rect::from_min_size(hover_pos, Vec2::splat(10.)), 0., egui::Color32::RED, egui::Stroke::none());
+    }
+
     // All done! Return the interaction response so the user can check what happened
     // (hovered, clicked, ...) and maybe show a tooltip:
     response
@@ -114,6 +126,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
 
 type Grid = HashSet<(i32, i32)>;
 
+// TODO: Use a rect, and scroll with respect to the cursor.
 pub struct GridView {
     /// The center of the view, in grid units
     center: Pos2,
@@ -140,13 +153,19 @@ impl GridView {
         self.center -= delta / self.scale;
     }
 
-    pub fn zoom(&mut self, delta: f32) {
-        self.scale = (self.scale + delta * self.scale).clamp(1., 1000.);
+    pub fn zoom(&mut self, delta: f32, cursor_px: Pos2, view_size_px: Vec2) {
+        let view_center_px = view_size_px / 2.;
+        let cursor_off_px = cursor_px - view_center_px;
+        dbg!(cursor_px);
+        let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
+        self.center += cursor_off_grid * delta;
+
+        self.scale += delta * self.scale;
     }
 
-    pub fn click(&mut self, pos: Pos2) {
+    /*pub fn click(&mut self, _pos: Pos2) {
         todo!()
-    }
+    }*/
 
     pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
         let view_center_px = view_size_px / 2.;
