@@ -60,10 +60,6 @@ impl epi::App for TemplateApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            //let t = std::time::Instant::now();
-            ui.add(grid_square(&mut self.grid_view, Vec2::splat(400.)));
-            //dbg!(t.elapsed().as_secs_f32());
 
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
@@ -72,6 +68,11 @@ impl epi::App for TemplateApp {
                 "Source code."
             ));
             egui::warn_if_debug_build(ui);
+
+            // The central panel the region left after adding TopPanel's and SidePanel's
+            //let t = std::time::Instant::now();
+            ui.add(grid_square(&mut self.grid_view, Vec2::splat(400.)));
+            //dbg!(t.elapsed().as_secs_f32());
         });
     }
 }
@@ -96,7 +97,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     if let Some(hover_pos) = response.hover_pos() {
         grid_view.zoom(
             ui.input().scroll_delta.y * 0.001,
-            (hover_pos - display_rect.min).to_pos2(),
+            hover_pos,
             display_rect.size(),
         );
     }
@@ -154,13 +155,15 @@ impl GridView {
     }
 
     pub fn zoom(&mut self, delta: f32, cursor_px: Pos2, view_size_px: Vec2) {
+        self.scale += delta * self.scale;
+
         let view_center_px = view_size_px / 2.;
         let cursor_off_px = cursor_px - view_center_px;
-        dbg!(cursor_px);
+        dbg!(cursor_off_px);
         let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
+
         self.center += cursor_off_grid * delta;
 
-        self.scale += delta * self.scale;
     }
 
     /*pub fn click(&mut self, _pos: Pos2) {
@@ -175,9 +178,9 @@ impl GridView {
 
         self.grid.iter().filter_map(move |&(x, y)| {
             let pos_grid = Pos2::new(x as f32, y as f32);
-            let rect = Rect::from_min_size(pos_grid, Vec2::splat(1.));
+            let rect = Rect::from_center_size(pos_grid, Vec2::splat(1.));
             view_rect_grid.intersects(rect).then(move || {
-                Rect::from_min_size(
+                Rect::from_center_size(
                     ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
                     Vec2::splat(self.scale),
                 )
