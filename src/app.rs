@@ -1,24 +1,23 @@
 use eframe::{egui, epi};
+use egui::{Pos2, Rect, Vec2};
+use std::collections::HashSet;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
 #[cfg_attr(feature = "persistence", serde(default))] // if we add new fields, give them default values when deserializing old state
 pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
-    #[cfg_attr(feature = "persistence", serde(skip))]
-    value: f32,
+    grid_view: GridView,
 }
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
-        }
+        let mut grid = Grid::new();
+        grid.insert((1, 1));
+        grid.insert((0, 0));
+
+        let grid_view = GridView::from_grid(grid);
+
+        Self { grid_view }
     }
 }
 
@@ -52,19 +51,10 @@ impl epi::App for TemplateApp {
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, frame: &epi::Frame) {
-        let Self { label, value } = self;
-
+    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
-            let pixels = [
-                true, false, true, false, 
-                true, false, false, false, 
-                true, true, true, false, 
-                true, false, false, false,
-            ];
-
-            ui.add(grid_square(&pixels, 4));
+            ui.add(grid_square(&mut self.grid_view, Vec2::splat(400.)));
 
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
@@ -76,35 +66,32 @@ impl epi::App for TemplateApp {
         });
     }
 }
-pub fn grid_square(pixels: &[bool], width: usize) -> impl egui::Widget + '_ {
-    move |ui: &mut egui::Ui| grid_square_ui(ui, pixels, width)
+
+pub fn grid_square(grid_view: &mut GridView, scale: Vec2) -> impl egui::Widget + '_ {
+    move |ui: &mut egui::Ui| grid_square_ui(ui, grid_view, scale)
 }
 
-pub fn grid_square_ui(ui: &mut egui::Ui, pixels: &[bool], width: usize) -> egui::Response {
-    // Widget code can be broken up in four steps:
-    //  1. Decide a size for the widget
-    //  2. Allocate space for it
-    //  3. Handle interactions with the widget (if any)
-    //  4. Paint the widget
+pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) -> egui::Response {
+    grid_view.center.x = grid_view.t.elapsed().as_secs_f32() * 0.1;
+    grid_view.center.y = grid_view.t.elapsed().as_secs_f32() * 0.1;
+    let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::hover());
 
-    let display_width = 200.0;
+    let mut ui = ui.child_ui(display_rect, egui::Layout::default());
+    ui.set_clip_rect(display_rect);
 
-    // 1. Deciding widget size:
-    // You can query the `ui` how much space is available,
-    // but in this example we have a fixed size widget based on the height of a standard button:
-    let desired_size = egui::vec2(display_width, display_width); //ui.spacing().interact_size.y * egui::vec2(2.0, 1.0);
-
-    // 2. Allocating space:
-    // This is where we get a region of the screen assigned.
-    // We also tell the Ui to sense clicks in the allocated region.
-    let (display_rect, response) = ui.allocate_exact_size(desired_size, egui::Sense::hover());
-
-    // 4. Paint!
-    // Make sure we need to paint:
     if ui.is_rect_visible(display_rect) {
-        //let visuals = ui.style().interact(&response);
+        // Background
         ui.painter()
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
+
+        for tile in grid_view.view(scale) {
+            dbg!(tile);
+            ui.painter()
+                .rect(tile, 0., egui::Color32::WHITE, egui::Stroke::none());
+        }
+        eprintln!();
+
+        /*
         let cell_width = display_width as f32 / width as f32;
         let cell_size = egui::vec2(cell_width, cell_width);
         for (col_idx, row) in pixels.chunks_exact(width).enumerate() {
@@ -113,16 +100,69 @@ pub fn grid_square_ui(ui: &mut egui::Ui, pixels: &[bool], width: usize) -> egui:
                     let pos = egui::pos2(
                         row_idx as f32 * cell_width,
                         col_idx as f32 * cell_width,
-                    ) + display_rect.left_top().to_vec2();
+                    )
+                    + display_rect.left_top().to_vec2()
+                    - egui::vec2(5., 5.);
                     let rect = egui::Rect::from_min_size(pos, cell_size);
                     ui.painter()
                         .rect(rect, 0., egui::Color32::WHITE, egui::Stroke::none());
                 }
             }
         }
+        */
     }
 
     // All done! Return the interaction response so the user can check what happened
     // (hovered, clicked, ...) and maybe show a tooltip:
     response
+}
+
+type Grid = HashSet<(i32, i32)>;
+
+pub struct GridView {
+    /// The center of the view, in grid units
+    center: Pos2,
+    /// Pixels per tile
+    scale: f32,
+    /// Grid cells which are on
+    grid: Grid,
+    t: std::time::Instant,
+}
+
+impl GridView {
+    pub fn new() -> Self {
+        Self::from_grid(Grid::new())
+    }
+
+    pub fn from_grid(grid: Grid) -> Self {
+        Self {
+            scale: 100.,
+            center: Pos2::ZERO,
+            grid,
+            t: std::time::Instant::now(),
+        }
+    }
+
+    pub fn click(&mut self, pos: Pos2) {
+        todo!()
+    }
+
+    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
+        let view_center_px = view_size_px / 2.;
+        let view_size_grid = view_size_px / self.scale;
+        let view_center_grid = self.center + (view_center_px / self.scale);
+
+        let view_rect_grid = Rect::from_center_size(view_center_grid, view_size_grid);
+
+        self.grid.iter().filter_map(move |&(x, y)| {
+            let pos_grid = Pos2::new(x as f32, y as f32);
+            let rect = Rect::from_min_size(pos_grid, Vec2::splat(1.));
+            view_rect_grid.intersects(rect).then(move || {
+                Rect::from_min_size(
+                    ((pos_grid - view_center_grid) * self.scale + view_center_px).to_pos2(),
+                    Vec2::splat(self.scale),
+                )
+            })
+        })
+    }
 }
