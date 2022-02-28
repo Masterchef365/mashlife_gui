@@ -254,8 +254,11 @@ impl GridView {
 
 fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<Handle> {
     // Load RLE
+    //let (rle, rle_width) =
+        //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
-        mashlife::io::load_rle(path).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+
     let rle_height = rle.len() / rle_width;
 
     let max_rle_dim = rle_height.max(rle_width);
@@ -272,12 +275,12 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<Handle> {
         (half_width - rle_height as i64) / 2 + quarter_width,
     );
 
-    let start = std::time::Instant::now();
+    //let start = std::time::Instant::now();
     let input_cell = life.insert_array(&rle, rle_width, insert_tl, n as _);
-    println!(
+    /*println!(
         "Input insertion took {}ms",
         start.elapsed().as_secs_f32() * 1e3
-    );
+    );*/
 
     Ok(input_cell)
 }
