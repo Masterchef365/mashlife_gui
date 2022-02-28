@@ -60,7 +60,6 @@ impl epi::App for TemplateApp {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-
             ui.heading("eframe template");
             ui.hyperlink("https://github.com/emilk/eframe_template");
             ui.add(egui::github_link_file!(
@@ -97,15 +96,12 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     if let Some(hover_pos) = response.hover_pos() {
         grid_view.zoom(
             ui.input().scroll_delta.y * 0.001,
-            hover_pos,
+            hover_pos - display_rect.min.to_vec2(),
             display_rect.size(),
         );
 
         if response.clicked() {
-            grid_view.click(
-                hover_pos,
-                display_rect.size(),
-            );
+            grid_view.click(hover_pos - display_rect.min.to_vec2(), display_rect.size());
         }
     }
 
@@ -116,19 +112,15 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
         for tile in grid_view.view(scale) {
-            ui.painter()
-                .rect(tile, 0., egui::Color32::WHITE, egui::Stroke::none());
+            ui.painter().rect(
+                tile.translate(display_rect.min.to_vec2()),
+                0.,
+                egui::Color32::WHITE,
+                egui::Stroke::none(),
+            );
         }
-        eprintln!();
     }
 
-    if let Some(hover_pos) = response.hover_pos() {
-        ui.painter()
-            .rect(Rect::from_min_size(hover_pos, Vec2::splat(10.)), 0., egui::Color32::RED, egui::Stroke::none());
-    }
-
-    // All done! Return the interaction response so the user can check what happened
-    // (hovered, clicked, ...) and maybe show a tooltip:
     response
 }
 
@@ -169,7 +161,6 @@ impl GridView {
         let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
 
         self.center += cursor_off_grid * delta;
-
     }
 
     pub fn click(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
@@ -178,7 +169,10 @@ impl GridView {
         let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
         let cursor_pos_grid = self.center + cursor_off_grid;
 
-        let cursor_off_grid_int = (cursor_pos_grid.x.round() as i32, cursor_off_grid.y.round() as i32);
+        let cursor_off_grid_int = (
+            cursor_pos_grid.x.round() as i32,
+            cursor_off_grid.y.round() as i32,
+        );
 
         if self.grid.get(&cursor_off_grid_int).is_some() {
             self.grid.remove(&cursor_off_grid_int);
