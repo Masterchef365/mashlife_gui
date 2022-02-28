@@ -13,7 +13,7 @@ impl Default for TemplateApp {
     fn default() -> Self {
         let mut grid = Grid::new();
 
-        let k: i32 = 4000;
+        let k: i32 = 14_000;
         for x in -k..=k {
             for y in -k..=k {
                 if (x.abs() * 3402 + y.abs() * 4281).count_ones() < 5 {
