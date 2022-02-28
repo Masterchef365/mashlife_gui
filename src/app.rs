@@ -5,7 +5,7 @@ use mashlife::{HashLife, Rules, Handle};
 use std::path::Path;
 use anyhow::{Result, Context};
 
-const GRID_SIZE: Vec2 = Vec2::splat(400.);
+const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
@@ -97,7 +97,7 @@ impl epi::App for MashlifeGui {
         let handle = self.life.result(self.input, self.time_step, (0, 0), 0);
         self.copy_grid(handle);
 
-        self.time_step += 1;
+        self.time_step += 32;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe template");
@@ -257,7 +257,7 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<Handle> {
     //let (rle, rle_width) =
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
