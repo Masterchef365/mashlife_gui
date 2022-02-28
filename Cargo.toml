@@ -12,8 +12,9 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 eframe = "0.17.0" # Gives us egui, epi and web+native backends
-
 serde = { version = "1", features = ["derive"], optional = true }
+mashlife = { path = "../mashlife" } # TODO: use git! (specific rev too)
+anyhow = "1"
 
 [features]
 default = []
