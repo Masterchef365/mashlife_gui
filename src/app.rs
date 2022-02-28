@@ -100,6 +100,13 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             hover_pos,
             display_rect.size(),
         );
+
+        if response.clicked() {
+            grid_view.click(
+                hover_pos,
+                display_rect.size(),
+            );
+        }
     }
 
     // Drawing
@@ -159,16 +166,26 @@ impl GridView {
 
         let view_center_px = view_size_px / 2.;
         let cursor_off_px = cursor_px - view_center_px;
-        dbg!(cursor_off_px);
         let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
 
         self.center += cursor_off_grid * delta;
 
     }
 
-    /*pub fn click(&mut self, _pos: Pos2) {
-        todo!()
-    }*/
+    pub fn click(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
+        let view_center_px = view_size_px / 2.;
+        let cursor_off_px = cursor_px - view_center_px;
+        let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
+        let cursor_pos_grid = self.center + cursor_off_grid;
+
+        let cursor_off_grid_int = (cursor_pos_grid.x.round() as i32, cursor_off_grid.y.round() as i32);
+
+        if self.grid.get(&cursor_off_grid_int).is_some() {
+            self.grid.remove(&cursor_off_grid_int);
+        } else {
+            self.grid.insert(cursor_off_grid_int);
+        }
+    }
 
     pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
         let view_center_px = view_size_px / 2.;
