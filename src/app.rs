@@ -39,14 +39,16 @@ impl Default for MashlifeGui {
             time_step: 0,
         };
 
-        instance.copy_grid(input);
+        instance.render_time_step(instance.time_step);
 
         instance
     }
 }
 
 impl MashlifeGui {
-    fn copy_grid(&mut self, handle: Handle) {
+    fn render_time_step(&mut self, time_step: usize) {
+        let handle = self.life.result(self.input, time_step, (0, 0), 0);
+
         self.grid_view.grid.clear();
 
         let rect = self.grid_view.viewbox_grid(GRID_SIZE);
@@ -94,8 +96,7 @@ impl epi::App for MashlifeGui {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
-        let handle = self.life.result(self.input, self.time_step, (0, 0), 0);
-        self.copy_grid(handle);
+        self.render_time_step(self.time_step);
 
         self.time_step += 32;
 
