@@ -15,6 +15,7 @@ pub struct MashlifeGui {
     life: HashLife,
     input: Handle,
     time_step: usize,
+    tl: Coord,
 }
 
 impl Default for MashlifeGui {
@@ -30,11 +31,12 @@ impl Default for MashlifeGui {
             }
         }
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let input = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
+        let (input, tl) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
         let mut instance = Self { 
             grid_view: GridView::from_grid(grid),
             input,
+            tl,
             life,
             time_step: 0,
         };
@@ -61,7 +63,7 @@ impl MashlifeGui {
         );
 
 
-        self.life.resolve((0, 0), &mut set_grid, rect, handle);
+        self.life.resolve(self.tl, &mut set_grid, rect, handle);
     }
 }
 
@@ -253,27 +255,31 @@ impl GridView {
     }
 }
 
-fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<Handle> {
+use mashlife::Coord;
+
+fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
-    let max_rle_dim = rle_height.max(rle_width);
+    //let max_rle_dim = rle_height.max(rle_width);
 
     eprintln!("REMOVE THESE DEFAULTS!!");
-    let expected_steps = 100 as u64 + 12_000;
-    let n = highest_pow_2(max_rle_dim as _)
-        .max(highest_pow_2(expected_steps) + 2);
+    //let expected_steps = 100 as u64 + 12_000;
+    let n = 52;
+        //highest_pow_2(max_rle_dim as _)
+        //.max(highest_pow_2(expected_steps) + 2);
 
-    let half_width = 1 << n - 1;
     let quarter_width = 1 << n - 2;
+
     let insert_tl = (
-        (half_width - rle_width as i64) / 2 + quarter_width,
-        (half_width - rle_height as i64) / 2 + quarter_width,
+        quarter_width, 
+        quarter_width
     );
 
     //let start = std::time::Instant::now();
@@ -283,9 +289,14 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<Handle> {
         start.elapsed().as_secs_f32() * 1e3
     );*/
 
-    Ok(input_cell)
+    let view_tl = (
+        quarter_width - rle_width as i64 / 2,
+        quarter_width - rle_height as i64 / 2,
+    );
+
+    Ok((input_cell, view_tl))
 }
 
-fn highest_pow_2(v: u64) -> u32 {
+/*fn highest_pow_2(v: u64) -> u32 {
     8 * std::mem::size_of_val(&v) as u32 - v.leading_zeros()
-}
+}*/
