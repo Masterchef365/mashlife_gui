@@ -15,13 +15,16 @@ eframe = "0.17.0" # Gives us egui, epi and web+native backends
 serde = { version = "1", features = ["derive"], optional = true }
 mashlife = { path = "../mashlife" } # TODO: use git! (specific rev too)
 anyhow = "1"
+zwohash = { version = "0.1.2", default-features = false }
 
 [features]
 default = []
 persistence = ["eframe/persistence", "serde"] # Enable if you want to persist app state on shutdown
 
 [profile.release]
-#opt-level = 2 # fast and small wasm
+#opt-level = 3 # fast and small wasm
+#lto = true
+debug = true
 
 [patch.crates-io]
 

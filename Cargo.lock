@@ -1137,6 +1137,7 @@ dependencies = [
  "mashlife",
  "serde",
  "tracing-wasm",
+ "zwohash",
 ]
 
 [[package]]

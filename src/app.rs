@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use mashlife::{HashLife, Rules, Handle};
 use std::path::Path;
 use anyhow::{Result, Context};
+type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
 
@@ -15,12 +16,13 @@ pub struct MashlifeGui {
     life: HashLife,
     input: Handle,
     time_step: usize,
-    tl: Coord,
+    view_tl: Coord,
+    insert_tl: Coord,
 }
 
 impl Default for MashlifeGui {
     fn default() -> Self {
-        let mut grid = Grid::new();
+        let mut grid = Grid::default();
 
         let k: i32 = 14_000;
         for x in -k..=k {
@@ -31,12 +33,13 @@ impl Default for MashlifeGui {
             }
         }
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (input, tl) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
+        let (input, view_tl, insert_tl) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
         let mut instance = Self { 
             grid_view: GridView::from_grid(grid),
             input,
-            tl,
+            view_tl,
+            insert_tl,
             life,
             time_step: 0,
         };
@@ -57,13 +60,16 @@ impl MashlifeGui {
 
         let mut set_grid = |(x, y)| { let _ = self.grid_view.grid.insert((x as _, y as _)); };
 
+        let (left, top) = self.insert_tl;
         let rect = (
-            (rect.min.x.floor() as _, rect.min.x.floor() as _),
-            (rect.min.y.ceil() as _, rect.min.y.ceil() as _),
+            (rect.min.x.floor() as i64 + left, rect.min.y.floor() as i64 + top),
+            (rect.max.x.ceil() as i64 + left, rect.max.y.ceil() as i64 + top),
         );
 
+        //dbg!(self.view_tl);
+        //dbg!(rect);
 
-        self.life.resolve(self.tl, &mut set_grid, rect, handle);
+        self.life.resolve(self.view_tl, &mut set_grid, rect, handle);
     }
 }
 
@@ -154,6 +160,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         ui.painter()
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
+        //dbg!(grid_view.scale, grid_view.center, grid_view.grid.len());
         for tile in grid_view.view(scale) {
             ui.painter().rect(
                 tile.translate(display_rect.min.to_vec2()),
@@ -167,7 +174,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     response
 }
 
-type Grid = HashSet<(i32, i32)>;
+type Grid = HashSet<(i32, i32), ZwoHasher>;
 
 // TODO: Use a rect, and scroll with respect to the cursor.
 pub struct GridView {
@@ -181,7 +188,7 @@ pub struct GridView {
 
 impl GridView {
     pub fn new() -> Self {
-        Self::from_grid(Grid::new())
+        Self::from_grid(Grid::default())
     }
 
     /// Create a new instance from a grid
@@ -257,13 +264,13 @@ impl GridView {
 
 use mashlife::Coord;
 
-fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
+fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
         mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
@@ -294,7 +301,7 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coor
         quarter_width - rle_height as i64 / 2,
     );
 
-    Ok((input_cell, view_tl))
+    Ok((input_cell, view_tl, insert_tl))
 }
 
 /*fn highest_pow_2(v: u64) -> u32 {
