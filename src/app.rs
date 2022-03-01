@@ -276,7 +276,7 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coor
 
     //let max_rle_dim = rle_height.max(rle_width);
 
-    eprintln!("REMOVE THESE DEFAULTS!!");
+    //eprintln!("REMOVE THESE DEFAULTS!!");
     //let expected_steps = 100 as u64 + 12_000;
     let n = 52;
         //highest_pow_2(max_rle_dim as _)

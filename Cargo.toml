@@ -24,7 +24,7 @@ persistence = ["eframe/persistence", "serde"] # Enable if you want to persist ap
 [profile.release]
 #opt-level = 3 # fast and small wasm
 #lto = true
-debug = true
+#debug = true
 
 [patch.crates-io]
 
