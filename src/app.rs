@@ -151,7 +151,13 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         );
 
         if response.clicked() {
-            grid_view.click(cursor_relative, display_rect.size());
+            grid_view.modify(cursor_relative, display_rect.size(), Modification::Toggle);
+        }
+
+        if response.dragged_by(egui::PointerButton::Primary) {
+            // TODO: "pick" a single pixel instead of `Modification`, then be able to draw a line
+            // of pixels?
+            grid_view.modify(cursor_relative, display_rect.size(), Modification::Alive);
         }
     }
 
@@ -227,15 +233,17 @@ impl GridView {
     }
 
     /// Handle a click
-    pub fn click(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
+    pub fn modify(&mut self, cursor_px: Pos2, view_size_px: Vec2, modif: Modification) {
         let cursor_off_grid = self.calc_cursor_grid(cursor_px, view_size_px);
 
+        let cursor_pos_grid = self.center + cursor_off_grid;
+
         let cursor_off_grid_int = (
-            cursor_off_grid.x.round() as i64,
-            cursor_off_grid.y.round() as i64,
+            cursor_pos_grid.x.round() as i64,
+            cursor_pos_grid.y.round() as i64,
         );
 
-        self.queued_changes.insert(cursor_off_grid_int, Modification::Toggle);
+        self.queued_changes.insert(cursor_off_grid_int, modif);
     }
 
     /// The current view rect, in grid space
