@@ -42,7 +42,7 @@ impl MashlifeGui {
     fn render_time_step(&mut self, time_step: usize) {
         let handle = self.life.result(self.input, time_step, (0, 0), 0);
 
-        let min_n = self.grid_view.min_n;
+        let min_n = self.grid_view.min_n();
         self.grid_view.grid.clear();
 
         let rect = self.grid_view.viewbox_grid(GRID_SIZE);
@@ -92,7 +92,7 @@ impl epi::App for MashlifeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         self.render_time_step(self.time_step);
 
-        self.time_step += 32;
+        self.time_step += 1024;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe template");
@@ -170,8 +170,6 @@ pub struct GridView {
     scale: f32,
     /// Grid cells which are on, and their counts
     grid: Grid,
-    /// Power-of-two cells per tile
-    min_n: usize,
 }
 
 impl GridView {
@@ -179,12 +177,15 @@ impl GridView {
         Self::from_grid(Grid::default())
     }
 
+    pub fn min_n(&self) -> usize {
+        (1. / self.scale).log2() as usize
+    }
+
     /// Create a new instance from a grid
     pub fn from_grid(grid: Grid) -> Self {
         Self {
             scale: 50.,
             center: Pos2::ZERO,
-            min_n: 1,
             grid,
         }
     }
@@ -238,16 +239,16 @@ impl GridView {
 
         let view_rect_grid = self.viewbox_grid(view_size_px);
 
-        let cell_scale_grid = (1 << self.min_n) as f32;
+        let cell_scale_grid = (1 << self.min_n()) as f32;
         let cell_scale_grid_px = cell_scale_grid * self.scale;
 
         let tile_size_grid = Vec2::splat(cell_scale_grid);
         let tile_size_px = Vec2::splat(cell_scale_grid_px);
 
-        let max_alive = (1 << (self.min_n * 2)) as f32;
+        let max_alive = (1 << (self.min_n() * 2)) as f32;
 
         self.grid.iter().filter_map(move |&(x, y, alive)| {
-            let brightness = alive as f32 / max_alive;
+            let brightness = if alive > 0 { 1. } else { 0. };//alive as f32 / max_alive;
 
             let pos_grid = Pos2::new(x as f32, y as f32);
             let rect = Rect::from_center_size(pos_grid, tile_size_grid);
