@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
-use std::collections::HashSet;
-use mashlife::{HashLife, Handle};
+use std::collections::{HashSet, HashMap};
+use mashlife::{HashLife, Handle, Modification};
 use std::path::Path;
 use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
@@ -18,6 +18,8 @@ pub struct MashlifeGui {
     time_step: usize,
     view_center: Coord,
 }
+
+const DEFAULT_N: usize = 60;
 
 impl Default for MashlifeGui {
     fn default() -> Self {
@@ -40,8 +42,19 @@ impl Default for MashlifeGui {
 
 impl MashlifeGui {
     fn render_time_step(&mut self, time_step: usize) {
+        // TODO: Keep the grid at a specific size N by taking the time-stepped and modified grid
+        // (smaller than input) and surrounding it with zeroes and making a new cell.
+
+        // Apply pending changes
+        for ((x, y), modif) in self.grid_view.queued_changes.drain() {
+            let coord = (x + (1 << DEFAULT_N - 1), y + (1 << DEFAULT_N - 1));
+            self.input = self.life.modify(self.input, coord, modif, DEFAULT_N);
+        }
+
+        // Calculate result
         let handle = self.life.result(self.input, time_step, (0, 0), 0);
 
+        // Render result
         let min_n = self.grid_view.min_n();
         self.grid_view.grid.clear();
 
@@ -92,7 +105,7 @@ impl epi::App for MashlifeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         self.render_time_step(self.time_step);
 
-        self.time_step += 1024;
+        //self.time_step += 1;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe template");
@@ -123,20 +136,22 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     ui.set_clip_rect(display_rect);
 
     // Dragging
-    if response.dragged_by(egui::PointerButton::Primary) {
+    if response.dragged_by(egui::PointerButton::Secondary) {
         grid_view.drag(response.drag_delta());
     }
 
     // Zooming
     if let Some(hover_pos) = response.hover_pos() {
+        let cursor_relative = hover_pos - display_rect.min.to_vec2();
+
         grid_view.zoom(
             ui.input().scroll_delta.y * 0.001,
-            hover_pos - display_rect.min.to_vec2(),
+            cursor_relative,
             display_rect.size(),
         );
 
         if response.clicked() {
-            grid_view.click(hover_pos - display_rect.min.to_vec2(), display_rect.size());
+            grid_view.click(cursor_relative, display_rect.size());
         }
     }
 
@@ -170,6 +185,8 @@ pub struct GridView {
     scale: f32,
     /// Grid cells which are on, and their counts
     grid: Grid,
+    /// Changes to be applied to the game when ready 
+    queued_changes: HashMap<Coord, Modification, ZwoHasher>,
 }
 
 impl GridView {
@@ -184,9 +201,10 @@ impl GridView {
     /// Create a new instance from a grid
     pub fn from_grid(grid: Grid) -> Self {
         Self {
-            scale: 50.,
+            scale: 20.,
             center: Pos2::ZERO,
             grid,
+            queued_changes: Default::default(),
         }
     }
 
@@ -195,36 +213,29 @@ impl GridView {
         self.center -= delta / self.scale;
     }
 
+    fn calc_cursor_grid(&self, cursor_px: Pos2, view_size_px: Vec2) -> Vec2 {
+        let view_center_px = view_size_px / 2.;
+        let cursor_off_px = cursor_px - view_center_px;
+        let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
+        cursor_off_grid
+    }
+
     /// Handle a zoom action
     pub fn zoom(&mut self, delta: f32, cursor_px: Pos2, view_size_px: Vec2) {
         self.scale += delta * self.scale;
-
-        let view_center_px = view_size_px / 2.;
-        let cursor_off_px = cursor_px - view_center_px;
-        let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
-
-        self.center += cursor_off_grid * delta;
+        self.center += self.calc_cursor_grid(cursor_px, view_size_px) * delta;
     }
 
     /// Handle a click
-    pub fn click(&mut self, _cursor_px: Pos2, _view_size_px: Vec2) {
-        /*
-        let view_center_px = view_size_px / 2.;
-        let cursor_off_px = cursor_px - view_center_px;
-        let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
-        let cursor_pos_grid = self.center + cursor_off_grid;
+    pub fn click(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
+        let cursor_off_grid = self.calc_cursor_grid(cursor_px, view_size_px);
 
         let cursor_off_grid_int = (
-            cursor_pos_grid.x.round() as i32,
-            cursor_off_grid.y.round() as i32,
+            cursor_off_grid.x.round() as i64,
+            cursor_off_grid.y.round() as i64,
         );
 
-        if self.grid.get(&cursor_off_grid_int).is_some() {
-            self.grid.remove(&cursor_off_grid_int);
-        } else {
-            self.grid.insert(cursor_off_grid_int);
-        }
-        */
+        self.queued_changes.insert(cursor_off_grid_int, Modification::Toggle);
     }
 
     /// The current view rect, in grid space
@@ -267,8 +278,8 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
@@ -276,7 +287,7 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
 
     //eprintln!("REMOVE THESE DEFAULTS!!");
     //let expected_steps = 100 as u64 + 12_000;
-    let n = 60;
+    let n = DEFAULT_N;
         //highest_pow_2(max_rle_dim as _)
         //.max(highest_pow_2(expected_steps) + 2);
 
