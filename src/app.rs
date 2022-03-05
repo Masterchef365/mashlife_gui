@@ -47,7 +47,7 @@ impl MashlifeGui {
 
         let rect = self.grid_view.viewbox_grid(GRID_SIZE);
 
-        let mut set_grid = |(x, y), alive| { let _ = self.grid_view.grid.insert((x as _, y as _, alive)); };
+        let mut set_grid = |(x, y)| { let _ = self.grid_view.grid.insert((x as _, y as _)); };
 
         let (left, top) = self.view_center;
         let rect = (
@@ -147,11 +147,11 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
         //dbg!(grid_view.scale, grid_view.center, grid_view.grid.len());
-        for (tile, brightness) in grid_view.view(scale) {
+        for tile in grid_view.view(scale) {
             ui.painter().rect(
                 tile.translate(display_rect.min.to_vec2()),
                 0.,
-                egui::Color32::from_gray((brightness * 256.) as u8),
+                egui::Color32::WHITE,
                 egui::Stroke::none(),
             );
         }
@@ -160,7 +160,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     response
 }
 
-type Grid = HashSet<(i32, i32, u32), ZwoHasher>;
+type Grid = HashSet<(i32, i32), ZwoHasher>;
 
 // TODO: Use a rect, and scroll with respect to the cursor.
 pub struct GridView {
@@ -234,7 +234,7 @@ impl GridView {
     }
 
     /// Return the rectangles of the pixels which are in view
-    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = (Rect, f32)> + '_ {
+    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
         let view_center_px = view_size_px / 2.;
 
         let view_rect_grid = self.viewbox_grid(view_size_px);
@@ -245,20 +245,15 @@ impl GridView {
         let tile_size_grid = Vec2::splat(cell_scale_grid);
         let tile_size_px = Vec2::splat(cell_scale_grid_px);
 
-        let max_alive = (1 << (self.min_n() * 2)) as f32;
-
-        self.grid.iter().filter_map(move |&(x, y, alive)| {
-            let brightness = if alive > 0 { 1. } else { 0. };//alive as f32 / max_alive;
-
+        self.grid.iter().filter_map(move |&(x, y)| {
             let pos_grid = Pos2::new(x as f32, y as f32);
             let rect = Rect::from_center_size(pos_grid, tile_size_grid);
 
             view_rect_grid.intersects(rect).then(move || {
-                let rect = Rect::from_center_size(
+                Rect::from_center_size(
                     ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
                     tile_size_px
-                );
-                (rect, brightness)
+                )
             })
         })
     }
