@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use std::collections::HashSet;
-use mashlife::{HashLife, Rules, Handle};
+use mashlife::{HashLife, Handle};
 use std::path::Path;
 use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
@@ -21,21 +21,11 @@ pub struct MashlifeGui {
 
 impl Default for MashlifeGui {
     fn default() -> Self {
-        let mut grid = Grid::default();
-
-        let k: i32 = 14_000;
-        for x in -k..=k {
-            for y in -k..=k {
-                if (x.abs() * 3402 + y.abs() * 4281).count_ones() < 5 {
-                    grid.insert((x, y));
-                }
-            }
-        }
         let mut life = HashLife::new("B3/S23".parse().unwrap());
         let (input, view_center) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
         let mut instance = Self { 
-            grid_view: GridView::from_grid(grid),
+            grid_view: GridView::new(),
             input,
             view_center,
             life,
@@ -52,11 +42,12 @@ impl MashlifeGui {
     fn render_time_step(&mut self, time_step: usize) {
         let handle = self.life.result(self.input, time_step, (0, 0), 0);
 
+        let min_n = self.grid_view.min_n;
         self.grid_view.grid.clear();
 
         let rect = self.grid_view.viewbox_grid(GRID_SIZE);
 
-        let mut set_grid = |(x, y)| { let _ = self.grid_view.grid.insert((x as _, y as _)); };
+        let mut set_grid = |(x, y), alive| { let _ = self.grid_view.grid.insert((x as _, y as _, alive)); };
 
         let (left, top) = self.view_center;
         let rect = (
@@ -64,7 +55,7 @@ impl MashlifeGui {
             (rect.max.x.ceil() as i64 + left, rect.max.y.ceil() as i64 + top),
         );
 
-        self.life.resolve((0, 0), &mut set_grid, rect, handle);
+        self.life.resolve((0, 0), &mut set_grid, min_n, rect, handle);
     }
 }
 
@@ -156,11 +147,11 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
         //dbg!(grid_view.scale, grid_view.center, grid_view.grid.len());
-        for tile in grid_view.view(scale) {
+        for (tile, brightness) in grid_view.view(scale) {
             ui.painter().rect(
                 tile.translate(display_rect.min.to_vec2()),
                 0.,
-                egui::Color32::WHITE,
+                egui::Color32::from_gray((brightness * 256.) as u8),
                 egui::Stroke::none(),
             );
         }
@@ -169,7 +160,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     response
 }
 
-type Grid = HashSet<(i32, i32), ZwoHasher>;
+type Grid = HashSet<(i32, i32, u32), ZwoHasher>;
 
 // TODO: Use a rect, and scroll with respect to the cursor.
 pub struct GridView {
@@ -177,8 +168,10 @@ pub struct GridView {
     center: Pos2,
     /// Pixels per tile
     scale: f32,
-    /// Grid cells which are on
+    /// Grid cells which are on, and their counts
     grid: Grid,
+    /// Power-of-two cells per tile
+    min_n: usize,
 }
 
 impl GridView {
@@ -191,6 +184,7 @@ impl GridView {
         Self {
             scale: 50.,
             center: Pos2::ZERO,
+            min_n: 1,
             grid,
         }
     }
@@ -212,7 +206,8 @@ impl GridView {
     }
 
     /// Handle a click
-    pub fn click(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
+    pub fn click(&mut self, _cursor_px: Pos2, _view_size_px: Vec2) {
+        /*
         let view_center_px = view_size_px / 2.;
         let cursor_off_px = cursor_px - view_center_px;
         let cursor_off_grid = cursor_off_px.to_vec2() / self.scale;
@@ -228,6 +223,7 @@ impl GridView {
         } else {
             self.grid.insert(cursor_off_grid_int);
         }
+        */
     }
 
     /// The current view rect, in grid space
@@ -237,19 +233,31 @@ impl GridView {
     }
 
     /// Return the rectangles of the pixels which are in view
-    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
+    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = (Rect, f32)> + '_ {
         let view_center_px = view_size_px / 2.;
 
         let view_rect_grid = self.viewbox_grid(view_size_px);
 
-        self.grid.iter().filter_map(move |&(x, y)| {
+        let cell_scale_grid = (1 << self.min_n) as f32;
+        let cell_scale_grid_px = cell_scale_grid * self.scale;
+
+        let tile_size_grid = Vec2::splat(cell_scale_grid);
+        let tile_size_px = Vec2::splat(cell_scale_grid_px);
+
+        let max_alive = (1 << (self.min_n * 2)) as f32;
+
+        self.grid.iter().filter_map(move |&(x, y, alive)| {
+            let brightness = alive as f32 / max_alive;
+
             let pos_grid = Pos2::new(x as f32, y as f32);
-            let rect = Rect::from_center_size(pos_grid, Vec2::splat(1.));
+            let rect = Rect::from_center_size(pos_grid, tile_size_grid);
+
             view_rect_grid.intersects(rect).then(move || {
-                Rect::from_center_size(
+                let rect = Rect::from_center_size(
                     ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
-                    Vec2::splat(self.scale),
-                )
+                    tile_size_px
+                );
+                (rect, brightness)
             })
         })
     }
@@ -257,14 +265,14 @@ impl GridView {
 
 use mashlife::Coord;
 
-fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
+fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
