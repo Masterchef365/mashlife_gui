@@ -16,8 +16,7 @@ pub struct MashlifeGui {
     life: HashLife,
     input: Handle,
     time_step: usize,
-    view_tl: Coord,
-    insert_tl: Coord,
+    view_center: Coord,
 }
 
 impl Default for MashlifeGui {
@@ -33,13 +32,12 @@ impl Default for MashlifeGui {
             }
         }
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (input, view_tl, insert_tl) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
+        let (input, view_center) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
         let mut instance = Self { 
             grid_view: GridView::from_grid(grid),
             input,
-            view_tl,
-            insert_tl,
+            view_center,
             life,
             time_step: 0,
         };
@@ -60,16 +58,13 @@ impl MashlifeGui {
 
         let mut set_grid = |(x, y)| { let _ = self.grid_view.grid.insert((x as _, y as _)); };
 
-        let (left, top) = self.insert_tl;
+        let (left, top) = self.view_center;
         let rect = (
             (rect.min.x.floor() as i64 + left, rect.min.y.floor() as i64 + top),
             (rect.max.x.ceil() as i64 + left, rect.max.y.ceil() as i64 + top),
         );
 
-        //dbg!(self.view_tl);
-        //dbg!(rect);
-
-        self.life.resolve(self.view_tl, &mut set_grid, rect, handle);
+        self.life.resolve((0, 0), &mut set_grid, rect, handle);
     }
 }
 
@@ -237,9 +232,7 @@ impl GridView {
 
     /// The current view rect, in grid space
     pub fn viewbox_grid(&self, view_size_px: Vec2) -> Rect {
-        let view_center_px = view_size_px / 2.;
         let view_size_grid = view_size_px / self.scale;
-
         Rect::from_center_size(self.center, view_size_grid)
     }
 
@@ -264,13 +257,14 @@ impl GridView {
 
 use mashlife::Coord;
 
-fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord, Coord)> {
+fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
@@ -278,15 +272,16 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coor
 
     //eprintln!("REMOVE THESE DEFAULTS!!");
     //let expected_steps = 100 as u64 + 12_000;
-    let n = 52;
+    let n = 60;
         //highest_pow_2(max_rle_dim as _)
         //.max(highest_pow_2(expected_steps) + 2);
 
+    let half_width = 1 << n - 1;
     let quarter_width = 1 << n - 2;
 
     let insert_tl = (
-        quarter_width, 
-        quarter_width
+        half_width - rle_width as i64 / 2,
+        half_width - rle_height as i64 / 2
     );
 
     //let start = std::time::Instant::now();
@@ -296,12 +291,12 @@ fn load_rle(path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coor
         start.elapsed().as_secs_f32() * 1e3
     );*/
 
-    let view_tl = (
-        quarter_width - rle_width as i64 / 2,
-        quarter_width - rle_height as i64 / 2,
+    let view_center = (
+        quarter_width,
+        quarter_width
     );
 
-    Ok((input_cell, view_tl, insert_tl))
+    Ok((input_cell, view_center))
 }
 
 /*fn highest_pow_2(v: u64) -> u32 {
