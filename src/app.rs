@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
-use std::collections::{HashSet, HashMap};
-use mashlife::{HashLife, Handle, Modification};
+use std::collections::HashSet;
+use mashlife::{HashLife, Handle};
 use std::path::Path;
 use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
@@ -46,9 +46,10 @@ impl MashlifeGui {
         // (smaller than input) and surrounding it with zeroes and making a new cell.
 
         // Apply pending changes
-        for ((x, y), modif) in self.grid_view.queued_changes.drain() {
+        for (x, y) in self.grid_view.queued_changes.drain() {
             let coord = (x + (1 << DEFAULT_N - 1), y + (1 << DEFAULT_N - 1));
-            self.input = self.life.modify(self.input, coord, modif, DEFAULT_N);
+            let value = !self.life.read(self.input, coord);
+            self.input = self.life.modify(self.input, coord, value, DEFAULT_N);
         }
 
         // Calculate result
@@ -106,6 +107,7 @@ impl epi::App for MashlifeGui {
         self.render_time_step(self.time_step);
 
         //self.time_step += 1;
+        //dbg!(self.time_step);
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("eframe template");
@@ -151,13 +153,13 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         );
 
         if response.clicked() {
-            grid_view.modify(cursor_relative, display_rect.size(), Modification::Toggle);
+            grid_view.modify(cursor_relative, display_rect.size());
         }
 
         if response.dragged_by(egui::PointerButton::Primary) {
             // TODO: "pick" a single pixel instead of `Modification`, then be able to draw a line
             // of pixels?
-            grid_view.modify(cursor_relative, display_rect.size(), Modification::Alive);
+            //grid_view.modify(cursor_relative, display_rect.size(), Modification::Alive);
         }
     }
 
@@ -192,7 +194,7 @@ pub struct GridView {
     /// Grid cells which are on, and their counts
     grid: Grid,
     /// Changes to be applied to the game when ready 
-    queued_changes: HashMap<Coord, Modification, ZwoHasher>,
+    queued_changes: HashSet<Coord, ZwoHasher>,
 }
 
 impl GridView {
@@ -233,7 +235,7 @@ impl GridView {
     }
 
     /// Handle a click
-    pub fn modify(&mut self, cursor_px: Pos2, view_size_px: Vec2, modif: Modification) {
+    pub fn modify(&mut self, cursor_px: Pos2, view_size_px: Vec2) {
         let cursor_off_grid = self.calc_cursor_grid(cursor_px, view_size_px);
 
         let cursor_pos_grid = self.center + cursor_off_grid;
@@ -243,7 +245,7 @@ impl GridView {
             cursor_pos_grid.y.round() as i64,
         );
 
-        self.queued_changes.insert(cursor_off_grid_int, modif);
+        self.queued_changes.insert(cursor_off_grid_int);
     }
 
     /// The current view rect, in grid space
