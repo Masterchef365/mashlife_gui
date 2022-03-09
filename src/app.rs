@@ -31,7 +31,7 @@ impl Default for MashlifeGui {
             input,
             view_center,
             life,
-            time_step: 0,
+            time_step: 1,
         };
 
         instance.render_time_step(instance.time_step);
@@ -53,7 +53,8 @@ impl MashlifeGui {
         }
 
         // Calculate result
-        let handle = self.life.result(self.input, time_step, (0, 0), 0);
+        let handle = self.life.result(self.input, time_step, (0, 0));
+        self.input = self.life.expand(handle);
 
         // Render result
         let min_n = self.grid_view.min_n();
@@ -69,7 +70,7 @@ impl MashlifeGui {
             (rect.max.x.ceil() as i64 + left, rect.max.y.ceil() as i64 + top),
         );
 
-        self.life.resolve((0, 0), &mut set_grid, min_n, rect, handle);
+        self.life.resolve((0, 0), &mut set_grid, min_n, rect, self.input);
     }
 }
 
@@ -302,7 +303,7 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
         //.max(highest_pow_2(expected_steps) + 2);
 
     let half_width = 1 << n - 1;
-    let quarter_width = 1 << n - 2;
+    //let quarter_width = 1 << n - 2;
 
     let insert_tl = (
         half_width - rle_width as i64 / 2,
@@ -317,8 +318,10 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
     );*/
 
     let view_center = (
-        quarter_width,
-        quarter_width
+        half_width,
+        half_width
+        //quarter_width,
+        //quarter_width
     );
 
     Ok((input_cell, view_center))
