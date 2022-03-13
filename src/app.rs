@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use std::collections::HashSet;
-use mashlife::{HashLife, Handle};
+use mashlife::{HashLife, Handle, Coord};
 use std::path::Path;
 use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
@@ -15,11 +15,13 @@ pub struct MashlifeGui {
     grid_view: GridView,
     life: HashLife,
     input: Handle,
+
     time_step: usize,
     view_center: Coord,
+    still_drawing: bool,
 }
 
-const DEFAULT_N: usize = 60;
+const DEFAULT_N: usize = 62;
 
 impl Default for MashlifeGui {
     fn default() -> Self {
@@ -31,7 +33,8 @@ impl Default for MashlifeGui {
             input,
             view_center,
             life,
-            time_step: 1,
+            time_step: 0,
+            still_drawing: false,
         };
 
         instance.render_time_step(instance.time_step);
@@ -107,22 +110,32 @@ impl epi::App for MashlifeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         self.render_time_step(self.time_step);
 
-        //self.time_step += 1;
-        //dbg!(self.time_step);
+        egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.menu_button("File", |ui| {
+                    if ui.button("Load RLE from file").clicked() {}
+                    if ui.button("Paste RLE from clipboard").clicked() {}
+
+                    if ui.button("Save RLE to file").clicked() {}
+                    if ui.button("Copy RLE to clipboard").clicked() {}
+                });
+
+                ui.menu_button("Examples", |ui| {
+                    egui::ScrollArea::new([false, true]).show(ui, |ui| {
+                        ui.label("All credit to these patterns' creators at");
+                        ui.hyperlink("https://conwaylife.com/wiki/");
+                        ui.separator();
+                        for &(name, _rle) in BUILTIN_PATTERNS {
+                            if ui.button(name).clicked() {
+                            }
+                        }
+                    });
+                });
+            });
+        });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
-            egui::warn_if_debug_build(ui);
-
-            // The central panel the region left after adding TopPanel's and SidePanel's
-            //let t = std::time::Instant::now();
             ui.add(grid_square(&mut self.grid_view, GRID_SIZE));
-            //dbg!(t.elapsed().as_secs_f32());
         });
     }
 }
@@ -158,9 +171,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
         }
 
         if response.dragged_by(egui::PointerButton::Primary) {
-            // TODO: "pick" a single pixel instead of `Modification`, then be able to draw a line
-            // of pixels?
-            //grid_view.modify(cursor_relative, display_rect.size(), Modification::Alive);
+            grid_view.modify(cursor_relative, display_rect.size());
         }
     }
 
@@ -281,8 +292,6 @@ impl GridView {
     }
 }
 
-use mashlife::Coord;
-
 fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
@@ -294,39 +303,51 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
 
     let rle_height = rle.len() / rle_width;
 
-    //let max_rle_dim = rle_height.max(rle_width);
-
-    //eprintln!("REMOVE THESE DEFAULTS!!");
-    //let expected_steps = 100 as u64 + 12_000;
     let n = DEFAULT_N;
-        //highest_pow_2(max_rle_dim as _)
-        //.max(highest_pow_2(expected_steps) + 2);
 
     let half_width = 1 << n - 1;
-    //let quarter_width = 1 << n - 2;
 
     let insert_tl = (
         half_width - rle_width as i64 / 2,
         half_width - rle_height as i64 / 2
     );
 
-    //let start = std::time::Instant::now();
     let input_cell = life.insert_array(&rle, rle_width, insert_tl, n as _);
-    /*println!(
-        "Input insertion took {}ms",
-        start.elapsed().as_secs_f32() * 1e3
-    );*/
 
     let view_center = (
         half_width,
         half_width
-        //quarter_width,
-        //quarter_width
     );
 
     Ok((input_cell, view_center))
 }
 
-/*fn highest_pow_2(v: u64) -> u32 {
-    8 * std::mem::size_of_val(&v) as u32 - v.leading_zeros()
-}*/
+macro_rules! builtin_pattern {
+    ($path:expr) => {
+        ($path, include_str!(concat!("builtin_patterns/", $path)))
+    };
+}
+
+const BUILTIN_PATTERNS: &[(&str, &str)] = &[
+    builtin_pattern!("10cellinfinitegrowth.rle"),
+    builtin_pattern!("2005-07-23-switch-breeder.rle"),
+    builtin_pattern!("2011-01-10-HH-c5-grey-part.rle"),
+    builtin_pattern!("2011-01-10-HH-c5-greyship.rle"),
+    builtin_pattern!("2011-08-26-c7-extensible.rle"),
+    builtin_pattern!("52513m.rle"),
+    builtin_pattern!("acorn.rle"),
+    builtin_pattern!("anura.rle"),
+    builtin_pattern!("broken-lines.rle"),
+    builtin_pattern!("catacryst.rle"),
+    builtin_pattern!("clock.rle"),
+    builtin_pattern!("gotts-dots.rle"),
+    builtin_pattern!("hashlife-oddity2.rle"),
+    builtin_pattern!("hivenudger2.rle"),
+    builtin_pattern!("jagged.rle"),
+    builtin_pattern!("logarithmic-width.rle"),
+    builtin_pattern!("metapixel-galaxy.rle"),
+    builtin_pattern!("OTCAmetapixel.rle"),
+    builtin_pattern!("richsp16.rle"),
+    builtin_pattern!("smallp120hwssgun.rle"),
+    builtin_pattern!("sprayer.rle"),
+];
