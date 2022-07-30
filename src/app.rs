@@ -1,7 +1,7 @@
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use std::collections::HashSet;
-use mashlife::{HashLife, Handle, Coord};
+use mashlife::{HashLife, Handle, geometry::Coord};
 use std::path::Path;
 use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
@@ -18,9 +18,10 @@ pub struct MashlifeGui {
 
     time_step: usize,
     view_center: Coord,
-    still_drawing: bool,
 }
 
+/// N large enough for big maps, but small enough for the machinery in MashLife to work... This
+/// needs a more rigorous definition (or should just be 64)
 const DEFAULT_N: usize = 62;
 
 impl Default for MashlifeGui {
@@ -33,8 +34,7 @@ impl Default for MashlifeGui {
             input,
             view_center,
             life,
-            time_step: 0,
-            still_drawing: false,
+            time_step: 1,
         };
 
         instance.render_time_step(instance.time_step);
@@ -170,9 +170,9 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             grid_view.modify(cursor_relative, display_rect.size());
         }
 
-        if response.dragged_by(egui::PointerButton::Primary) {
+        /*if response.dragged_by(egui::PointerButton::Primary) {
             grid_view.modify(cursor_relative, display_rect.size());
-        }
+        }*/
     }
 
     // Drawing
@@ -298,8 +298,8 @@ fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coo
         //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
+        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
