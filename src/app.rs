@@ -128,8 +128,14 @@ impl epi::App for MashlifeGui {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
 
-                let n_bytes = self.life.mem_usage();
-                ui.label(format!("Memory usage: {}", format_mem_size(n_bytes)));
+                let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
+                ui.label(format!("Results: {}", format_mem_size(result_bytes)));
+                ui.label(format!("Parents: {}", format_mem_size(parent_bytes)));
+                ui.label(format!("Macrocells: {}", format_mem_size(macrocells_bytes)));
+                ui.label(format!(
+                    "Total: {}",
+                    format_mem_size(result_bytes + parent_bytes + macrocells_bytes)
+                ));
             });
             self.grid_view
                 .show(ui, &mut self.input, &mut self.life, self.view_center);
@@ -148,7 +154,7 @@ fn format_mem_size(size: usize) -> String {
     ];
 
     for (measure, name) in sizes {
-        if size >= measure {
+        if size > measure * 10 {
             s = format!("{} {}", size / measure, name);
         } else {
             break;
