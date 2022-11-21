@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use eframe::egui::Response;
+use eframe::egui::{DragValue, Response};
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
@@ -82,6 +82,7 @@ impl epi::App for MashlifeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         self.time_step(self.time_step);
 
+        /*
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
@@ -104,9 +105,28 @@ impl epi::App for MashlifeGui {
                 });
             });
         });
+        */
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.grid_view.show(ui, &mut self.input, &mut self.life, self.view_center);
+            ui.horizontal(|ui| {
+                ui.label("Time step: ");
+
+                if ui.button("- -").clicked() {
+                    self.time_step = 1
+                        << (usize::BITS - self.time_step.leading_zeros())
+                            .checked_sub(2)
+                            .unwrap_or(0)
+                }
+
+                ui.add(DragValue::new(&mut self.time_step));
+
+                if ui.button("++").clicked() {
+                    self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
+                }
+
+            });
+            self.grid_view
+                .show(ui, &mut self.input, &mut self.life, self.view_center);
         });
     }
 }
@@ -218,7 +238,13 @@ impl GridView {
         node
     }
 
-    fn render_life(&mut self, view_center: Coord, life: &mut HashLife, mut node: Handle, grid_size: Vec2) {
+    fn render_life(
+        &mut self,
+        view_center: Coord,
+        life: &mut HashLife,
+        mut node: Handle,
+        grid_size: Vec2,
+    ) {
         // Render result
         let min_n = self.min_n();
         self.grid.clear();
@@ -241,11 +267,16 @@ impl GridView {
             ),
         );
 
-        life
-            .resolve((0, 0), &mut set_grid, min_n, rect, node);
+        life.resolve((0, 0), &mut set_grid, min_n, rect, node);
     }
 
-    pub fn show(&mut self, ui: &mut egui::Ui, node: &mut Handle, life: &mut HashLife, view_center: Coord) -> Response {
+    pub fn show(
+        &mut self,
+        ui: &mut egui::Ui,
+        node: &mut Handle,
+        life: &mut HashLife,
+        view_center: Coord,
+    ) -> Response {
         let area = ui.available_size();
         let (display_rect, response) = ui.allocate_exact_size(area, egui::Sense::click_and_drag());
 
@@ -255,7 +286,8 @@ impl GridView {
 
         // Dragging
         if response.dragged_by(egui::PointerButton::Secondary)
-            || (response.dragged_by(egui::PointerButton::Primary) && ui.input().modifiers.shift_only())
+            || (response.dragged_by(egui::PointerButton::Primary)
+                && ui.input().modifiers.shift_only())
         {
             self.drag(response.drag_delta());
         }
@@ -275,8 +307,8 @@ impl GridView {
             }
 
             /*if response.dragged_by(egui::PointerButton::Primary) {
-              self.modify(cursor_relative, display_rect.size());
-              }*/
+            self.modify(cursor_relative, display_rect.size());
+            }*/
         }
 
         // Drawing
@@ -358,4 +390,4 @@ const BUILTIN_PATTERNS: &[(&str, &str)] = &[
     builtin_pattern!("richsp16.rle"),
     builtin_pattern!("smallp120hwssgun.rle"),
     builtin_pattern!("sprayer.rle"),
-    ];
+];
