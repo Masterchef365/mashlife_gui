@@ -112,10 +112,14 @@ impl epi::App for MashlifeGui {
                 ui.label("Time step: ");
 
                 if ui.button("- -").clicked() {
-                    self.time_step = 1
-                        << (usize::BITS - self.time_step.leading_zeros())
-                            .checked_sub(2)
-                            .unwrap_or(0)
+                    if self.time_step == 1 {
+                        self.time_step = 0;
+                    } else {
+                        self.time_step = 1
+                            << (usize::BITS - self.time_step.leading_zeros())
+                                .checked_sub(2)
+                                .unwrap_or(0)
+                    }
                 }
 
                 ui.add(DragValue::new(&mut self.time_step));
@@ -123,7 +127,6 @@ impl epi::App for MashlifeGui {
                 if ui.button("++").clicked() {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
-
             });
             self.grid_view
                 .show(ui, &mut self.input, &mut self.life, self.view_center);
