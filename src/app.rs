@@ -1,9 +1,9 @@
+use anyhow::{Context, Result};
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
+use mashlife::{geometry::Coord, Handle, HashLife};
 use std::collections::HashSet;
-use mashlife::{HashLife, Handle, geometry::Coord};
 use std::path::Path;
-use anyhow::{Result, Context};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
@@ -22,14 +22,14 @@ pub struct MashlifeGui {
 
 /// N large enough for big maps, but small enough for the machinery in MashLife to work... This
 /// needs a more rigorous definition (or should just be 64)
-const DEFAULT_N: usize = 62;
+const MAX_N: usize = 62;
 
 impl Default for MashlifeGui {
     fn default() -> Self {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
         let (input, view_center) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
-        let mut instance = Self { 
+        let mut instance = Self {
             grid_view: GridView::new(),
             input,
             view_center,
@@ -50,9 +50,9 @@ impl MashlifeGui {
 
         // Apply pending changes
         for (x, y) in self.grid_view.queued_changes.drain() {
-            let coord = (x + (1 << DEFAULT_N - 1), y + (1 << DEFAULT_N - 1));
+            let coord = (x + (1 << MAX_N - 1), y + (1 << MAX_N - 1));
             let value = !self.life.read(self.input, coord);
-            self.input = self.life.modify(self.input, coord, value, DEFAULT_N);
+            self.input = self.life.modify(self.input, coord, value, MAX_N);
         }
 
         // Calculate result
@@ -65,15 +65,24 @@ impl MashlifeGui {
 
         let rect = self.grid_view.viewbox_grid(GRID_SIZE);
 
-        let mut set_grid = |(x, y)| { let _ = self.grid_view.grid.insert((x as _, y as _)); };
+        let mut set_grid = |(x, y)| {
+            let _ = self.grid_view.grid.insert((x as _, y as _));
+        };
 
         let (left, top) = self.view_center;
         let rect = (
-            (rect.min.x.floor() as i64 + left, rect.min.y.floor() as i64 + top),
-            (rect.max.x.ceil() as i64 + left, rect.max.y.ceil() as i64 + top),
+            (
+                rect.min.x.floor() as i64 + left,
+                rect.min.y.floor() as i64 + top,
+            ),
+            (
+                rect.max.x.ceil() as i64 + left,
+                rect.max.y.ceil() as i64 + top,
+            ),
         );
 
-        self.life.resolve((0, 0), &mut set_grid, min_n, rect, self.input);
+        self.life
+            .resolve((0, 0), &mut set_grid, min_n, rect, self.input);
     }
 }
 
@@ -126,8 +135,7 @@ impl epi::App for MashlifeGui {
                         ui.hyperlink("https://conwaylife.com/wiki/");
                         ui.separator();
                         for &(name, _rle) in BUILTIN_PATTERNS {
-                            if ui.button(name).clicked() {
-                            }
+                            if ui.button(name).clicked() {}
                         }
                     });
                 });
@@ -152,7 +160,9 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
     ui.set_clip_rect(display_rect);
 
     // Dragging
-    if response.dragged_by(egui::PointerButton::Secondary) {
+    if response.dragged_by(egui::PointerButton::Secondary)
+        || (response.dragged_by(egui::PointerButton::Primary) && ui.input().modifiers.shift_only())
+    {
         grid_view.drag(response.drag_delta());
     }
 
@@ -205,7 +215,7 @@ pub struct GridView {
     scale: f32,
     /// Grid cells which are on, and their counts
     grid: Grid,
-    /// Changes to be applied to the game when ready 
+    /// Changes to be applied to the game when ready
     queued_changes: HashSet<Coord, ZwoHasher>,
 }
 
@@ -285,7 +295,7 @@ impl GridView {
             view_rect_grid.intersects(rect).then(move || {
                 Rect::from_center_size(
                     ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
-                    tile_size_px
+                    tile_size_px,
                 )
             })
         })
@@ -295,29 +305,26 @@ impl GridView {
 fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
     // Load RLE
     //let (rle, rle_width) =
-        //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
+    //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
     let (rle, rle_width) =
         //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
         mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
+    //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
 
     let rle_height = rle.len() / rle_width;
 
-    let n = DEFAULT_N;
+    let n = MAX_N;
 
     let half_width = 1 << n - 1;
 
     let insert_tl = (
         half_width - rle_width as i64 / 2,
-        half_width - rle_height as i64 / 2
+        half_width - rle_height as i64 / 2,
     );
 
     let input_cell = life.insert_array(&rle, rle_width, insert_tl, n as _);
 
-    let view_center = (
-        half_width,
-        half_width
-    );
+    let view_center = (half_width, half_width);
 
     Ok((input_cell, view_center))
 }
