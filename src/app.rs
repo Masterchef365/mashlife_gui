@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use eframe::egui::Response;
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
@@ -37,52 +38,14 @@ impl Default for MashlifeGui {
             time_step: 1,
         };
 
-        instance.render_time_step(instance.time_step);
-
         instance
     }
 }
 
 impl MashlifeGui {
-    fn render_time_step(&mut self, time_step: usize) {
-        // TODO: Keep the grid at a specific size N by taking the time-stepped and modified grid
-        // (smaller than input) and surrounding it with zeroes and making a new cell.
-
-        // Apply pending changes
-        for (x, y) in self.grid_view.queued_changes.drain() {
-            let coord = (x + (1 << MAX_N - 1), y + (1 << MAX_N - 1));
-            let value = !self.life.read(self.input, coord);
-            self.input = self.life.modify(self.input, coord, value, MAX_N);
-        }
-
-        // Calculate result
+    fn time_step(&mut self, time_step: usize) {
         let handle = self.life.result(self.input, time_step, (0, 0));
         self.input = self.life.expand(handle);
-
-        // Render result
-        let min_n = self.grid_view.min_n();
-        self.grid_view.grid.clear();
-
-        let rect = self.grid_view.viewbox_grid(GRID_SIZE);
-
-        let mut set_grid = |(x, y)| {
-            let _ = self.grid_view.grid.insert((x as _, y as _));
-        };
-
-        let (left, top) = self.view_center;
-        let rect = (
-            (
-                rect.min.x.floor() as i64 + left,
-                rect.min.y.floor() as i64 + top,
-            ),
-            (
-                rect.max.x.ceil() as i64 + left,
-                rect.max.y.ceil() as i64 + top,
-            ),
-        );
-
-        self.life
-            .resolve((0, 0), &mut set_grid, min_n, rect, self.input);
     }
 }
 
@@ -117,7 +80,7 @@ impl epi::App for MashlifeGui {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
-        self.render_time_step(self.time_step);
+        self.time_step(self.time_step);
 
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -143,16 +106,13 @@ impl epi::App for MashlifeGui {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add(grid_square(&mut self.grid_view, GRID_SIZE));
+            self.grid_view.show(ui, &mut self.input, &mut self.life, self.view_center);
         });
     }
 }
 
-pub fn grid_square(grid_view: &mut GridView, scale: Vec2) -> impl egui::Widget + '_ {
-    move |ui: &mut egui::Ui| grid_square_ui(ui, grid_view, scale)
-}
-
-pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) -> egui::Response {
+pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView) -> egui::Response {
+    let scale = ui.available_size();
     let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::click_and_drag());
 
     // Clip outside the draw space
@@ -192,7 +152,7 @@ pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView, scale: Vec2) 
             .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
 
         //dbg!(grid_view.scale, grid_view.center, grid_view.grid.len());
-        for tile in grid_view.view(scale) {
+        for tile in grid_view.view_rects(scale) {
             ui.painter().rect(
                 tile.translate(display_rect.min.to_vec2()),
                 0.,
@@ -277,7 +237,7 @@ impl GridView {
     }
 
     /// Return the rectangles of the pixels which are in view
-    pub fn view(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
+    pub fn view_rects(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
         let view_center_px = view_size_px / 2.;
 
         let view_rect_grid = self.viewbox_grid(view_size_px);
@@ -299,6 +259,50 @@ impl GridView {
                 )
             })
         })
+    }
+
+    fn update_life(&mut self, life: &mut HashLife, mut node: Handle) -> Handle {
+        // Apply pending changes
+        for (x, y) in self.queued_changes.drain() {
+            let coord = (x + (1 << MAX_N - 1), y + (1 << MAX_N - 1));
+            let value = !life.read(node, coord);
+            node = life.modify(node, coord, value, MAX_N);
+        }
+
+        node
+    }
+
+    fn render_life(&mut self, view_center: Coord, life: &mut HashLife, mut node: Handle) {
+        // Render result
+        let min_n = self.min_n();
+        self.grid.clear();
+
+        let rect = self.viewbox_grid(GRID_SIZE);
+
+        let mut set_grid = |(x, y)| {
+            let _ = self.grid.insert((x as _, y as _));
+        };
+
+        let (left, top) = view_center;
+        let rect = (
+            (
+                rect.min.x.floor() as i64 + left,
+                rect.min.y.floor() as i64 + top,
+            ),
+            (
+                rect.max.x.ceil() as i64 + left,
+                rect.max.y.ceil() as i64 + top,
+            ),
+        );
+
+        life
+            .resolve((0, 0), &mut set_grid, min_n, rect, node);
+    }
+
+    pub fn show(&mut self, ui: &mut egui::Ui, node: &mut Handle, life: &mut HashLife, view_center: Coord) -> Response {
+        *node = self.update_life(life, *node);
+        self.render_life(view_center, life, *node);
+        grid_square_ui(ui, self)
     }
 }
 
@@ -357,4 +361,4 @@ const BUILTIN_PATTERNS: &[(&str, &str)] = &[
     builtin_pattern!("richsp16.rle"),
     builtin_pattern!("smallp120hwssgun.rle"),
     builtin_pattern!("sprayer.rle"),
-];
+    ];
