@@ -111,60 +111,6 @@ impl epi::App for MashlifeGui {
     }
 }
 
-pub fn grid_square_ui(ui: &mut egui::Ui, grid_view: &mut GridView) -> egui::Response {
-    let scale = ui.available_size();
-    let (display_rect, response) = ui.allocate_exact_size(scale, egui::Sense::click_and_drag());
-
-    // Clip outside the draw space
-    let mut ui = ui.child_ui(display_rect, egui::Layout::default());
-    ui.set_clip_rect(display_rect);
-
-    // Dragging
-    if response.dragged_by(egui::PointerButton::Secondary)
-        || (response.dragged_by(egui::PointerButton::Primary) && ui.input().modifiers.shift_only())
-    {
-        grid_view.drag(response.drag_delta());
-    }
-
-    // Zooming
-    if let Some(hover_pos) = response.hover_pos() {
-        let cursor_relative = hover_pos - display_rect.min.to_vec2();
-
-        grid_view.zoom(
-            ui.input().scroll_delta.y * 0.001,
-            cursor_relative,
-            display_rect.size(),
-        );
-
-        if response.clicked() {
-            grid_view.modify(cursor_relative, display_rect.size());
-        }
-
-        /*if response.dragged_by(egui::PointerButton::Primary) {
-            grid_view.modify(cursor_relative, display_rect.size());
-        }*/
-    }
-
-    // Drawing
-    if ui.is_rect_visible(display_rect) {
-        // Background
-        ui.painter()
-            .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
-
-        //dbg!(grid_view.scale, grid_view.center, grid_view.grid.len());
-        for tile in grid_view.view_rects(scale) {
-            ui.painter().rect(
-                tile.translate(display_rect.min.to_vec2()),
-                0.,
-                egui::Color32::WHITE,
-                egui::Stroke::none(),
-            );
-        }
-    }
-
-    response
-}
-
 type Grid = HashSet<(i32, i32), ZwoHasher>;
 
 // TODO: Use a rect, and scroll with respect to the cursor.
@@ -272,12 +218,12 @@ impl GridView {
         node
     }
 
-    fn render_life(&mut self, view_center: Coord, life: &mut HashLife, mut node: Handle) {
+    fn render_life(&mut self, view_center: Coord, life: &mut HashLife, mut node: Handle, grid_size: Vec2) {
         // Render result
         let min_n = self.min_n();
         self.grid.clear();
 
-        let rect = self.viewbox_grid(GRID_SIZE);
+        let rect = self.viewbox_grid(grid_size);
 
         let mut set_grid = |(x, y)| {
             let _ = self.grid.insert((x as _, y as _));
@@ -300,9 +246,60 @@ impl GridView {
     }
 
     pub fn show(&mut self, ui: &mut egui::Ui, node: &mut Handle, life: &mut HashLife, view_center: Coord) -> Response {
+        let area = ui.available_size();
+        let (display_rect, response) = ui.allocate_exact_size(area, egui::Sense::click_and_drag());
+
+        // Clip outside the draw space
+        let mut ui = ui.child_ui(display_rect, egui::Layout::default());
+        ui.set_clip_rect(display_rect);
+
+        // Dragging
+        if response.dragged_by(egui::PointerButton::Secondary)
+            || (response.dragged_by(egui::PointerButton::Primary) && ui.input().modifiers.shift_only())
+        {
+            self.drag(response.drag_delta());
+        }
+
+        // Zooming
+        if let Some(hover_pos) = response.hover_pos() {
+            let cursor_relative = hover_pos - display_rect.min.to_vec2();
+
+            self.zoom(
+                ui.input().scroll_delta.y * 0.001,
+                cursor_relative,
+                display_rect.size(),
+            );
+
+            if response.clicked() {
+                self.modify(cursor_relative, display_rect.size());
+            }
+
+            /*if response.dragged_by(egui::PointerButton::Primary) {
+              self.modify(cursor_relative, display_rect.size());
+              }*/
+        }
+
+        // Drawing
+        if ui.is_rect_visible(display_rect) {
+            // Background
+            ui.painter()
+                .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
+
+            //dbg!(self.scale, self.center, self.grid.len());
+            for tile in self.view_rects(area) {
+                ui.painter().rect(
+                    tile.translate(display_rect.min.to_vec2()),
+                    0.,
+                    egui::Color32::WHITE,
+                    egui::Stroke::none(),
+                );
+            }
+        }
+
         *node = self.update_life(life, *node);
-        self.render_life(view_center, life, *node);
-        grid_square_ui(ui, self)
+        self.render_life(view_center, life, *node, area);
+
+        response
     }
 }
 
