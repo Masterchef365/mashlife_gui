@@ -127,11 +127,35 @@ impl epi::App for MashlifeGui {
                 if ui.button("++").clicked() {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
+
+                let n_bytes = self.life.mem_usage();
+                ui.label(format!("Memory usage: {}", format_mem_size(n_bytes)));
             });
             self.grid_view
                 .show(ui, &mut self.input, &mut self.life, self.view_center);
         });
     }
+}
+
+fn format_mem_size(size: usize) -> String {
+    let mut s = String::new();
+
+    let sizes = [
+        (1, "bytes"),
+        (1024usize.pow(1), "KB"),
+        (1024usize.pow(2), "MB"),
+        (1024usize.pow(3), "GB"),
+    ];
+
+    for (measure, name) in sizes {
+        if size >= measure {
+            s = format!("{} {}", size / measure, name);
+        } else {
+            break;
+        }
+    }
+
+    s
 }
 
 type Grid = HashSet<(i32, i32), ZwoHasher>;
