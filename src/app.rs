@@ -51,7 +51,11 @@ impl MashlifeGui {
         let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
         let total = result_bytes + parent_bytes + macrocells_bytes;
 
-        let mem_limit = 1024usize.pow(3); // 1 GB
+        #[cfg(target_family = "wasm")]
+        let mem_limit = 1024usize.pow(2) * 500; // 500 MB
+        #[cfg(not(target_family = "wasm"))]
+        let mem_limit = 1024usize.pow(3); // 1GB
+        //let mem_limit = 1024usize.pow(3); // 1 GB
 
         if total > mem_limit {
             let (new_life, new_world) = self.life.gc(self.world);
@@ -166,7 +170,7 @@ fn format_mem_size(size: usize) -> String {
     ];
 
     for (measure, name) in sizes {
-        if size > measure * 10 {
+        if size >= measure * 10 {
             s = format!("{} {}", size / measure, name);
         } else {
             break;
