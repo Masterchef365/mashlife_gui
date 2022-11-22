@@ -15,7 +15,7 @@ const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
 pub struct MashlifeGui {
     grid_view: GridView,
     life: HashLife,
-    input: Handle,
+    world: Handle,
 
     time_step: usize,
     view_center: Coord,
@@ -30,9 +30,9 @@ impl Default for MashlifeGui {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
         let (input, view_center) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
 
-        let mut instance = Self {
+        let instance = Self {
             grid_view: GridView::new(),
-            input,
+            world: input,
             view_center,
             life,
             time_step: 1,
@@ -44,8 +44,12 @@ impl Default for MashlifeGui {
 
 impl MashlifeGui {
     fn time_step(&mut self, time_step: usize) {
-        let handle = self.life.result(self.input, time_step, (0, 0));
-        self.input = self.life.expand(handle);
+        let handle = self.life.result(self.world, time_step, (0, 0));
+        self.world = self.life.expand(handle);
+
+        let (new_life, new_world) = self.life.gc(self.world);
+        self.world = new_world;
+        self.life = new_life;
     }
 }
 
@@ -138,7 +142,7 @@ impl epi::App for MashlifeGui {
                 ));
             });
             self.grid_view
-                .show(ui, &mut self.input, &mut self.life, self.view_center);
+                .show(ui, &mut self.world, &mut self.life, self.view_center);
         });
     }
 }
