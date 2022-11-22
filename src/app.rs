@@ -47,9 +47,17 @@ impl MashlifeGui {
         let handle = self.life.result(self.world, time_step, (0, 0));
         self.world = self.life.expand(handle);
 
-        let (new_life, new_world) = self.life.gc(self.world);
-        self.world = new_world;
-        self.life = new_life;
+        // Automatic garbage collection
+        let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
+        let total = result_bytes + parent_bytes + macrocells_bytes;
+
+        let mem_limit = 1024usize.pow(3); // 1 GB
+
+        if total > mem_limit {
+            let (new_life, new_world) = self.life.gc(self.world);
+            self.world = new_world;
+            self.life = new_life;
+        }
     }
 }
 
