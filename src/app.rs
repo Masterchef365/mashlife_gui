@@ -151,7 +151,7 @@ fn format_mem_size(size: usize) -> String {
     let mut s = String::new();
 
     let sizes = [
-        (1, "bytes"),
+        (1024usize.pow(0), "bytes"),
         (1024usize.pow(1), "KB"),
         (1024usize.pow(2), "MB"),
         (1024usize.pow(3), "GB"),
