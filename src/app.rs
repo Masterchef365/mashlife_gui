@@ -162,15 +162,19 @@ impl epi::App for MashlifeGui {
 fn format_mem_size(size: usize) -> String {
     let mut s = String::new();
 
+    let mag: usize = 1024;
+
     let sizes = [
-        (1024usize.pow(0), "bytes"),
-        (1024usize.pow(1), "KB"),
-        (1024usize.pow(2), "MB"),
-        (1024usize.pow(3), "GB"),
+        (mag.pow(0), "bytes"),
+        (mag.pow(1), "KB"),
+        (mag.pow(2), "MB"),
+        (mag.pow(3), "GB"),
+        (mag.pow(4), "TB"),
+        (mag.pow(5), "PB"),
     ];
 
     for (measure, name) in sizes {
-        if size >= measure * 10 {
+        if size >= measure - 1 {
             s = format!("{} {}", size / measure, name);
         } else {
             break;
