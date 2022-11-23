@@ -5,6 +5,7 @@ use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
 use std::collections::HashSet;
 use std::path::Path;
+use std::time::{Instant, Duration};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
@@ -19,6 +20,7 @@ pub struct MashlifeGui {
 
     time_step: usize,
     view_center: Coord,
+    step_timing: Duration,
 }
 
 /// N large enough for big maps, but small enough for the machinery in MashLife to work... This
@@ -36,6 +38,7 @@ impl Default for MashlifeGui {
             view_center,
             life,
             time_step: 1,
+            step_timing: Duration::ZERO,
         };
 
         instance
@@ -44,6 +47,8 @@ impl Default for MashlifeGui {
 
 impl MashlifeGui {
     fn time_step(&mut self, time_step: usize) {
+        let time_start = Instant::now();
+
         let handle = self.life.result(self.world, time_step, (0, 0));
         self.world = self.life.expand(handle);
 
@@ -62,6 +67,8 @@ impl MashlifeGui {
             self.world = new_world;
             self.life = new_life;
         }
+
+        self.step_timing = time_start.elapsed();
     }
 }
 
@@ -152,6 +159,7 @@ impl epi::App for MashlifeGui {
                     "Total: {}",
                     format_mem_size(result_bytes + parent_bytes + macrocells_bytes)
                 ));
+                ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
             });
             self.grid_view
                 .show(ui, &mut self.world, &mut self.life, self.view_center);
