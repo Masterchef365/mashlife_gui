@@ -1,14 +1,11 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use eframe::egui::{DragValue, Response};
 use eframe::{egui, epi};
 use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
 use std::collections::HashSet;
-use std::path::Path;
 use std::time::{Instant, Duration};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
-
-const GRID_SIZE: Vec2 = Vec2::new(720., 480.);
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[cfg_attr(feature = "persistence", derive(serde::Deserialize, serde::Serialize))]
@@ -30,7 +27,8 @@ const MAX_N: usize = 62;
 impl Default for MashlifeGui {
     fn default() -> Self {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (input, view_center) = load_rle("mashlife/life/52513m.rle", &mut life).unwrap();
+        let (rle, width) = mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).unwrap();
+        let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
 
         let instance = Self {
             grid_view: GridView::new(),
@@ -105,7 +103,6 @@ impl epi::App for MashlifeGui {
     fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
         self.time_step(self.time_step);
 
-        /*
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
                 ui.menu_button("File", |ui| {
@@ -121,14 +118,20 @@ impl epi::App for MashlifeGui {
                         ui.label("All credit to these patterns' creators at");
                         ui.hyperlink("https://conwaylife.com/wiki/");
                         ui.separator();
-                        for &(name, _rle) in BUILTIN_PATTERNS {
-                            if ui.button(name).clicked() {}
+                        for &(name, rle) in BUILTIN_PATTERNS {
+                            if ui.button(name).clicked() {
+                                let mut life = HashLife::new("B3/S23".parse().unwrap());
+                                let (rle, width) = mashlife::io::parse_rle(rle).unwrap();
+                                let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
+                                self.life = life;
+                                self.world = input;
+                                self.view_center = view_center;
+                            }
                         }
                     });
                 });
             });
         });
-        */
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -396,15 +399,7 @@ impl GridView {
     }
 }
 
-fn load_rle(_path: impl AsRef<Path>, life: &mut HashLife) -> Result<(Handle, Coord)> {
-    // Load RLE
-    //let (rle, rle_width) =
-    //mashlife::io::load_rle(path).context("Failed to load RLE file")?;
-    let (rle, rle_width) =
-        //mashlife::io::parse_rle(include_str!("../../mashlife/life/metapixel-galaxy.rle")).context("Failed to load RLE file")?;
-        mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).context("Failed to load RLE file")?;
-    //mashlife::io::parse_rle(include_str!("../../mashlife/life/52513m.rle")).context("Failed to load RLE file")?;
-
+fn load_rle(rle: &[bool], rle_width: usize, life: &mut HashLife) -> Result<(Handle, Coord)> {
     let rle_height = rle.len() / rle_width;
 
     let n = MAX_N;
