@@ -105,6 +105,7 @@ impl epi::App for MashlifeGui {
 
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
+                /*
                 ui.menu_button("File", |ui| {
                     if ui.button("Load RLE from file").clicked() {}
                     if ui.button("Paste RLE from clipboard").clicked() {}
@@ -112,6 +113,7 @@ impl epi::App for MashlifeGui {
                     if ui.button("Save RLE to file").clicked() {}
                     if ui.button("Copy RLE to clipboard").clicked() {}
                 });
+                */
 
                 ui.menu_button("Examples", |ui| {
                     egui::ScrollArea::new([false, true]).show(ui, |ui| {
