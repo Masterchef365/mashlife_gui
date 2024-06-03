@@ -132,11 +132,6 @@ impl epi::App for MashlifeGui {
                         }
                     });
                 });
-            });
-        });
-
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
                 ui.label("Time step: ");
 
                 if ui.button("- -").clicked() {
@@ -166,8 +161,10 @@ impl epi::App for MashlifeGui {
                 ));
                 ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
             });
-            self.grid_view
-                .show(ui, &mut self.world, &mut self.life, self.view_center);
+        });
+
+        egui::CentralPanel::default().show(ctx, |ui| {
+            self.grid_view.show(ui, &mut self.world, &mut self.life, self.view_center);
         });
     }
 }
