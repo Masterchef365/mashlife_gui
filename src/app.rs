@@ -14,7 +14,11 @@ pub struct MashlifeGui {
     life: HashLife,
     world: Handle,
 
+    frame_count: usize,
+
     time_step: usize,
+    time_div: usize,
+
     view_center: Coord,
     step_timing: Duration,
 }
@@ -36,6 +40,8 @@ impl Default for MashlifeGui {
             life,
             time_step: 0,
             step_timing: Duration::ZERO,
+            time_div: 1,
+            frame_count: 0,
         };
 
         instance
@@ -102,7 +108,16 @@ impl eframe::App for MashlifeGui {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        self.time_step(self.time_step);
+        // Update each frame
+        ctx.request_repaint();
+
+
+        if self.frame_count > self.time_div {
+            self.time_step(self.time_step);
+            self.frame_count = 0;
+        }
+
+        self.frame_count += 1;
 
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
             ui.horizontal(|ui| {
@@ -151,6 +166,8 @@ impl eframe::App for MashlifeGui {
                 if ui.button("++").clicked() {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
+
+                ui.add(DragValue::new(&mut self.time_div).prefix("/").clamp_range(1..=1000));
 
                 if ui.button("Step").clicked() {
                     self.time_step(1);
