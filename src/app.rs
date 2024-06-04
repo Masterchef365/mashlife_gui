@@ -2,8 +2,8 @@ use anyhow::Result;
 use eframe::egui::{self, DragValue, Response};
 use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
-use std::collections::HashSet;
-use std::time::{Instant, Duration};
+use std::collections::{HashMap, HashSet};
+use std::time::{Duration, Instant};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -30,7 +30,8 @@ const MAX_N: usize = 62;
 impl Default for MashlifeGui {
     fn default() -> Self {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (rle, width) = mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).unwrap();
+        let (rle, width) =
+            mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).unwrap();
         let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
 
         let instance = Self {
@@ -63,7 +64,7 @@ impl MashlifeGui {
         let mem_limit = 1024usize.pow(2) * 500; // 500 MB
         #[cfg(not(target_family = "wasm"))]
         let mem_limit = 1024usize.pow(3); // 1GB
-        //let mem_limit = 1024usize.pow(3); // 1 GB
+                                          //let mem_limit = 1024usize.pow(3); // 1 GB
 
         if total > mem_limit {
             let (new_life, new_world) = self.life.gc(self.world);
@@ -140,7 +141,8 @@ impl eframe::App for MashlifeGui {
                             if ui.button(name).clicked() {
                                 let mut life = HashLife::new("B3/S23".parse().unwrap());
                                 let (rle, width) = mashlife::io::parse_rle(rle).unwrap();
-                                let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
+                                let (input, view_center) =
+                                    load_rle(&rle, width, &mut life).unwrap();
                                 self.life = life;
                                 self.world = input;
                                 self.view_center = view_center;
@@ -181,12 +183,16 @@ impl eframe::App for MashlifeGui {
                     "Total: {}",
                     format_mem_size(result_bytes + parent_bytes + macrocells_bytes)
                 ));
-                ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
+                ui.label(format!(
+                    "Step time: {}ms",
+                    self.step_timing.as_millis() as f32
+                ));
             });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.grid_view.show(ui, &mut self.world, &mut self.life, self.view_center);
+            self.grid_view
+                .show(ui, &mut self.world, &mut self.life, self.view_center);
         });
     }
 }
@@ -216,7 +222,7 @@ fn format_mem_size(size: usize) -> String {
     s
 }
 
-type Grid = HashSet<(i32, i32), ZwoHasher>;
+type Grid = HashMap<(i32, i32), usize, ZwoHasher>;
 
 // TODO: Use a rect, and scroll with respect to the cursor.
 pub struct GridView {
@@ -288,7 +294,7 @@ impl GridView {
     }
 
     /// Return the rectangles of the pixels which are in view
-    pub fn view_rects(&self, view_size_px: Vec2) -> impl Iterator<Item = Rect> + '_ {
+    pub fn view_rects(&self, view_size_px: Vec2) -> impl Iterator<Item = (Rect, usize)> + '_ {
         let view_center_px = view_size_px / 2.;
 
         let view_rect_grid = self.viewbox_grid(view_size_px);
@@ -299,14 +305,17 @@ impl GridView {
         let tile_size_grid = Vec2::splat(cell_scale_grid);
         let tile_size_px = Vec2::splat(cell_scale_grid_px);
 
-        self.grid.iter().filter_map(move |&(x, y)| {
+        self.grid.iter().filter_map(move |(&(x, y), &num)| {
             let pos_grid = Pos2::new(x as f32, y as f32);
             let rect = Rect::from_center_size(pos_grid, tile_size_grid);
 
             view_rect_grid.intersects(rect).then(move || {
-                Rect::from_center_size(
-                    ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
-                    tile_size_px,
+                (
+                    Rect::from_center_size(
+                        ((pos_grid - self.center) * self.scale + view_center_px).to_pos2(),
+                        tile_size_px,
+                    ),
+                    num,
                 )
             })
         })
@@ -336,8 +345,8 @@ impl GridView {
 
         let rect = self.viewbox_grid(grid_size);
 
-        let mut set_grid = |(x, y)| {
-            let _ = self.grid.insert((x as _, y as _));
+        let mut set_grid = |(x, y), num| {
+            let _ = self.grid.insert((x as _, y as _), num);
         };
 
         let (left, top) = view_center;
@@ -403,11 +412,15 @@ impl GridView {
                 .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::NONE);
 
             //dbg!(self.scale, self.center, self.grid.len());
-            for tile in self.view_rects(area) {
+            for (tile, num) in self.view_rects(area) {
                 ui.painter().rect(
                     tile.translate(display_rect.min.to_vec2()),
                     0.,
-                    egui::Color32::WHITE,
+                    match num {
+                        1 => egui::Color32::WHITE,
+                        2 => egui::Color32::GREEN,
+                        _ => egui::Color32::RED,
+                    },
                     egui::Stroke::NONE,
                 );
             }
