@@ -1,6 +1,5 @@
 use anyhow::Result;
-use eframe::egui::{DragValue, Response};
-use eframe::{egui, epi};
+use eframe::egui::{self, DragValue, Response};
 use egui::{Pos2, Rect, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
 use std::collections::HashSet;
@@ -70,7 +69,8 @@ impl MashlifeGui {
     }
 }
 
-impl epi::App for MashlifeGui {
+impl eframe::App for MashlifeGui {
+    /*
     fn name(&self) -> &str {
         "eframe template"
     }
@@ -79,28 +79,29 @@ impl epi::App for MashlifeGui {
     fn setup(
         &mut self,
         ctx: &egui::Context,
-        _frame: &epi::Frame,
-        _storage: Option<&dyn epi::Storage>,
+        _frame: &eframe::Frame,
+        _storage: Option<&dyn eframe::Storage>,
     ) {
         ctx.set_visuals(egui::Visuals::dark());
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
         #[cfg(feature = "persistence")]
         if let Some(storage) = _storage {
-            *self = epi::get_value(storage, epi::APP_KEY).unwrap_or_default()
+            *self = eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default()
         }
     }
+    */
 
     /// Called by the frame work to save state before shutdown.
     /// Note that you must enable the `persistence` feature for this to work.
     #[cfg(feature = "persistence")]
-    fn save(&mut self, storage: &mut dyn epi::Storage) {
-        epi::set_value(storage, epi::APP_KEY, self);
+    fn save(&mut self, storage: &mut dyn eframe::Storage) {
+        eframe::set_value(storage, eframe::APP_KEY, self);
     }
 
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
-    fn update(&mut self, ctx: &egui::Context, _frame: &epi::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.time_step(self.time_step);
 
         egui::TopBottomPanel::top("Menu bar").show(ctx, |ui| {
@@ -354,7 +355,7 @@ impl GridView {
         // Dragging
         if response.dragged_by(egui::PointerButton::Secondary)
             || (response.dragged_by(egui::PointerButton::Primary)
-                && ui.input().modifiers.shift_only())
+                && ui.input(|r| r.modifiers.shift_only()))
         {
             self.drag(response.drag_delta());
         }
@@ -364,7 +365,7 @@ impl GridView {
             let cursor_relative = hover_pos - display_rect.min.to_vec2();
 
             self.zoom(
-                ui.input().scroll_delta.y * 0.001,
+                ui.input(|r| r.smooth_scroll_delta.y * 0.001),
                 cursor_relative,
                 display_rect.size(),
             );
@@ -382,7 +383,7 @@ impl GridView {
         if ui.is_rect_visible(display_rect) {
             // Background
             ui.painter()
-                .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::none());
+                .rect(display_rect, 0., egui::Color32::BLACK, egui::Stroke::NONE);
 
             //dbg!(self.scale, self.center, self.grid.len());
             for tile in self.view_rects(area) {
@@ -390,7 +391,7 @@ impl GridView {
                     tile.translate(display_rect.min.to_vec2()),
                     0.,
                     egui::Color32::WHITE,
-                    egui::Stroke::none(),
+                    egui::Stroke::NONE,
                 );
             }
         }
@@ -450,3 +451,4 @@ const BUILTIN_PATTERNS: &[(&str, &str)] = &[
     builtin_pattern!("smallp120hwssgun.rle"),
     builtin_pattern!("sprayer.rle"),
 ];
+
