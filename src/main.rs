@@ -20,7 +20,7 @@ fn main() -> eframe::Result<()> {
     eframe::run_native(
         "eframe template",
         native_options,
-        Box::new(|_cc| Box::new(eframe_template::MashlifeGui::default())),
+        Box::new(|_cc| Box::new(mashlife_gui::MashlifeGui::default())),
     )
 }
 
@@ -37,7 +37,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|_cc| Box::new(eframe_template::MashlifeGui::default())),
+                Box::new(|_cc| Box::new(mashlife_gui::MashlifeGui::default())),
             )
             .await
             .expect("failed to start eframe");

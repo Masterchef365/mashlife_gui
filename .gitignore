@@ -1,3 +1,4 @@
 /target
 docs/mashlife_gui_bg.wasm
 docs/mashlife_gui.js
+dist/

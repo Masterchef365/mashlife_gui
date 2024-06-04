@@ -59,9 +59,9 @@ impl MashlifeGui {
         let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
         let total = result_bytes + parent_bytes + macrocells_bytes;
 
-        #[cfg(target_family = "wasm")]
-        let mem_limit = 1024usize.pow(2) * 500; // 500 MB
-        #[cfg(not(target_family = "wasm"))]
+        //#[cfg(target_family = "wasm")]
+        //let mem_limit = 1024usize.pow(2) * 500; // 500 MB
+        //#[cfg(not(target_family = "wasm"))]
         let mem_limit = 1024usize.pow(3); // 1GB
         //let mem_limit = 1024usize.pow(3); // 1 GB
 
