@@ -35,7 +35,7 @@ impl Default for MashlifeGui {
             world: input,
             view_center,
             life,
-            time_step: 1,
+            time_step: 0,
             step_timing: Duration::ZERO,
         };
 
@@ -151,6 +151,10 @@ impl epi::App for MashlifeGui {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
 
+                if ui.button("Step").clicked() {
+                    self.time_step(1);
+                }
+
                 let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
                 ui.label(format!("Results: {}", format_mem_size(result_bytes)));
                 ui.label(format!("Parents: {}", format_mem_size(parent_bytes)));
@@ -220,7 +224,7 @@ impl GridView {
     /// Create a new instance from a grid
     pub fn from_grid(grid: Grid) -> Self {
         Self {
-            scale: 20.,
+            scale: 1e-1,
             center: Pos2::ZERO,
             grid,
             queued_changes: Default::default(),
