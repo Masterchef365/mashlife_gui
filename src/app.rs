@@ -30,7 +30,7 @@ const MAX_N: usize = 62;
 impl Default for MashlifeGui {
     fn default() -> Self {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (rle, width) = mashlife::io::parse_rle(include_str!("../../mashlife/life/clock.rle")).unwrap();
+        let (rle, width) = mashlife::io::parse_rle(include_str!("builtin_patterns/clock.rle")).unwrap();
         let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
 
         let instance = Self {
