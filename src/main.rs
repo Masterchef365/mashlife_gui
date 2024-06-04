@@ -37,7 +37,7 @@ fn main() {
             .start(
                 "the_canvas_id", // hardcode it
                 web_options,
-                Box::new(|cc| Box::new(eframe_template::MashlifeGui::new(cc))),
+                Box::new(|_cc| Box::new(eframe_template::MashlifeGui::default())),
             )
             .await
             .expect("failed to start eframe");

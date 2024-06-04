@@ -20,7 +20,7 @@ pub struct MashlifeGui {
     time_div: usize,
 
     view_center: Coord,
-    step_timing: Duration,
+    //step_timing: Duration,
 }
 
 /// N large enough for big maps, but small enough for the machinery in MashLife to work... This
@@ -39,7 +39,7 @@ impl Default for MashlifeGui {
             view_center,
             life,
             time_step: 0,
-            step_timing: Duration::ZERO,
+            //step_timing: Duration::ZERO,
             time_div: 1,
             frame_count: 0,
         };
@@ -50,7 +50,7 @@ impl Default for MashlifeGui {
 
 impl MashlifeGui {
     fn time_step(&mut self, time_step: usize) {
-        let time_start = Instant::now();
+        //let time_start = Instant::now();
 
         let handle = self.life.result(self.world, time_step, (0, 0));
         self.world = self.life.expand(handle);
@@ -71,7 +71,7 @@ impl MashlifeGui {
             self.life = new_life;
         }
 
-        self.step_timing = time_start.elapsed();
+        //self.step_timing = time_start.elapsed();
     }
 }
 
@@ -181,7 +181,7 @@ impl eframe::App for MashlifeGui {
                     "Total: {}",
                     format_mem_size(result_bytes + parent_bytes + macrocells_bytes)
                 ));
-                ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
+                //ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
             });
         });
 
