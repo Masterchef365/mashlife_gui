@@ -3,7 +3,7 @@ use eframe::egui::{self, DragValue, Response};
 use egui::{Pos2, Rect, ScrollArea, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
 use std::collections::{HashMap, HashSet};
-use std::time::{Instant, Duration};
+use std::time::{Duration, Instant};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -30,7 +30,8 @@ const MAX_N: usize = 62;
 impl Default for MashlifeGui {
     fn default() -> Self {
         let mut life = HashLife::new("B3/S23".parse().unwrap());
-        let (rle, width) = mashlife::io::parse_rle(include_str!("builtin_patterns/clock.rle")).unwrap();
+        let (rle, width) =
+            mashlife::io::parse_rle(include_str!("builtin_patterns/clock.rle")).unwrap();
         let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
 
         let instance = Self {
@@ -59,11 +60,11 @@ impl MashlifeGui {
         let (result_bytes, parent_bytes, macrocells_bytes) = self.life.mem_usage();
         let total = result_bytes + parent_bytes + macrocells_bytes;
 
-        //#[cfg(target_family = "wasm")] 
+        //#[cfg(target_family = "wasm")]
         //let mem_limit = 1024usize.pow(2) * 500; // 500 MB
         //#[cfg(not(target_family = "wasm"))]
         let mem_limit = 1024usize.pow(3); // 1GB
-        //let mem_limit = 1024usize.pow(3); // 1 GB
+                                          //let mem_limit = 1024usize.pow(3); // 1 GB
 
         if total > mem_limit {
             let (new_life, new_world) = self.life.gc(self.world);
@@ -113,7 +114,6 @@ impl eframe::App for MashlifeGui {
             ctx.request_repaint();
         }
 
-
         if self.frame_count > self.time_div {
             self.time_step(self.time_step);
             self.frame_count = 0;
@@ -142,7 +142,8 @@ impl eframe::App for MashlifeGui {
                             if ui.button(name).clicked() {
                                 let mut life = HashLife::new("B3/S23".parse().unwrap());
                                 let (rle, width) = mashlife::io::parse_rle(rle).unwrap();
-                                let (input, view_center) = load_rle(&rle, width, &mut life).unwrap();
+                                let (input, view_center) =
+                                    load_rle(&rle, width, &mut life).unwrap();
                                 self.life = life;
                                 self.world = input;
                                 self.view_center = view_center;
@@ -169,7 +170,11 @@ impl eframe::App for MashlifeGui {
                     self.time_step = 1 << (usize::BITS - self.time_step.leading_zeros())
                 }
 
-                ui.add(DragValue::new(&mut self.time_div).prefix("/").clamp_range(1..=1000));
+                ui.add(
+                    DragValue::new(&mut self.time_div)
+                        .prefix("/")
+                        .clamp_range(1..=1000),
+                );
 
                 if ui.button("Step").clicked() {
                     self.time_step(1);
@@ -188,21 +193,51 @@ impl eframe::App for MashlifeGui {
         });
 
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
-            let n = self.life.macrocells().iter().map(|cell| cell.n).max().unwrap_or(0);
-            let mut n_buckets = vec![0;n+1];
-            for cell in self.life.macrocells() {
-                n_buckets[cell.n] += 1;
-            }
-
-            ScrollArea::vertical().show(ui, |ui| {
-                for (n, bucket) in n_buckets.iter().enumerate() {
-                    ui.label(format!("{n}: {bucket}"));
+            ui.collapsing("Macrocell n", |ui| {
+                let n = self
+                    .life
+                    .macrocells()
+                    .iter()
+                    .map(|cell| cell.n)
+                    .max()
+                    .unwrap_or(0);
+                let mut n_buckets = vec![0; n + 1];
+                for cell in self.life.macrocells() {
+                    n_buckets[cell.n] += 1;
                 }
+
+                ScrollArea::vertical().show(ui, |ui| {
+                    for (n, bucket) in n_buckets.iter().enumerate() {
+                        ui.label(format!("{n}: {bucket}"));
+                    }
+                });
             });
+
+            ui.collapsing("Result t", |ui| {
+                let t = self
+                    .life
+                    .results()
+                    .map(|((t, _), _)| *t)
+                    .max()
+                    .unwrap_or(0);
+                let mut t_buckets = vec![0; t + 1];
+
+                for ((t, _), _) in self.life.results() {
+                    t_buckets[*t] += 1;
+                }
+
+                ScrollArea::vertical().show(ui, |ui| {
+                    for (n, bucket) in t_buckets.iter().enumerate() {
+                        ui.label(format!("{n}: {bucket}"));
+                    }
+                });
+            });
+
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            self.grid_view.show(ui, &mut self.world, &mut self.life, self.view_center);
+            self.grid_view
+                .show(ui, &mut self.world, &mut self.life, self.view_center);
         });
     }
 }
@@ -484,4 +519,3 @@ const BUILTIN_PATTERNS: &[(&str, &str)] = &[
     builtin_pattern!("smallp120hwssgun.rle"),
     builtin_pattern!("sprayer.rle"),
 ];
-
