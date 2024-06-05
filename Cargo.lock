@@ -1563,7 +1563,6 @@ dependencies = [
 [[package]]
 name = "mashlife"
 version = "0.1.0"
-source = "git+https://github.com/Masterchef365/mashlife.git?rev=01bbe0d#01bbe0d021cd2e7917cae0fe904223d3d21033ec"
 dependencies = [
  "anyhow",
  "zwohash",

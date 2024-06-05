@@ -1,8 +1,8 @@
 use anyhow::Result;
 use eframe::egui::{self, DragValue, Response};
-use egui::{Pos2, Rect, Vec2};
+use egui::{Pos2, Rect, ScrollArea, Vec2};
 use mashlife::{geometry::Coord, Handle, HashLife};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::{Instant, Duration};
 type ZwoHasher = std::hash::BuildHasherDefault<zwohash::ZwoHasher>;
 
@@ -182,6 +182,20 @@ impl eframe::App for MashlifeGui {
                     format_mem_size(result_bytes + parent_bytes + macrocells_bytes)
                 ));
                 //ui.label(format!("Step time: {}ms", self.step_timing.as_millis() as f32));
+            });
+        });
+
+        egui::SidePanel::left("left_panel").show(ctx, |ui| {
+            let n = self.life.macrocells().iter().map(|cell| cell.n).max().unwrap_or(0);
+            let mut n_buckets = vec![0;n+1];
+            for cell in self.life.macrocells() {
+                n_buckets[cell.n] += 1;
+            }
+
+            ScrollArea::vertical().show(ui, |ui| {
+                for (n, bucket) in n_buckets.iter().enumerate() {
+                    ui.label(format!("{n}: {bucket}"));
+                }
             });
         });
 
