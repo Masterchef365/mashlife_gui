@@ -109,7 +109,9 @@ impl eframe::App for MashlifeGui {
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         // Update each frame
-        ctx.request_repaint();
+        if self.time_step != 0 {
+            ctx.request_repaint();
+        }
 
 
         if self.frame_count > self.time_div {
